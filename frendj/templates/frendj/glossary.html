@@ -1,0 +1,91 @@
+{% extends "base_menu.html" %}
+{% load humanize %}
+
+
+{% block header %}
+    {% if profile %}    
+    <div class="container-fluid d-flex justify-content-between">
+        <p class="fs-4 fw-bolder">{{ profile.name }}</p>
+        <div style="width:39%" class="pb-2">
+            <label for="prog-bar">Course progress</label>
+            <div class="progress" id="prog-bar" style="width: 100%; height: 25px;">
+                <div class="progress-bar progress-bar-striped bg-danger fw-bold fs-6"
+                    role="progressbar" style="width: {{ progress }}%;"
+                    aria-valuenow="{{ progress }}" aria-valuemin="0" aria-valuemax="100">
+                    {{ progress }}%</div>
+        </div></div>
+        <p class="text-end fs-4">
+            <span class="badge bg-success fw-bold px-3">
+                XP {{ profile.xp|intcomma }}</span></p>
+    </div>
+    {% endif %}
+{% endblock header %}
+
+
+{% block content %}
+<section class="container-fluid d-flex justify-content-between">
+    <form action="" muted="get" class="m-4 input-group">
+        <input type="text" placeholder="Search phrases and translations" name="search"
+        class="form-control"
+        {% if search %} value="{{ search }}" {% endif %}>
+        <button type="submit" class="btn btn-outline-dark">
+            <i class="fa fa-search"></i></button>
+        <a href="{% url 'frendj:glossary' %}" class="btn btn-outline-dark">
+            <i class="fa fa-undo pt-1"></i></a>
+    </form>
+</section>
+
+<section class="container-fluid p-2">
+    <div class="container">
+        <div class="row pb-2">
+            <div class="col-4 text-end fw-bold">Phrase</div>
+            <div class="col-5 text-start fw-bold">Translation</div>
+            <div class="col-3 text-end fw-bold">Strength</div>
+        </div>
+    </div>
+    
+    <div class="container card" id="container-card">
+        {% if not phrase_data and search %}
+        <div class="row justify-content-center p-5 fs-5">
+            Your search found no phrases for "{{ search }}"
+        </div>
+        {% else %}
+        
+        {% if phrase_data %}{% for phrase in phrase_data %}{% if phrase.language == "French" %}
+        <div class="row pb-3">
+            <div class="col-4 text-end">{{ phrase.phrase }} </div>
+            <div class="col-5 text-start">
+                {% for translation in phrase.translations %}
+                    &raquo; {{ translation }} <br>
+                {% endfor %}
+            </div>
+            <div class="col-3 text-end">
+                {% if phrase.learned %}
+                    {% if phrase.strength > 90 %}Excellent
+                    {% elif phrase.strength > 80 %}Amazing
+                    {% elif phrase.strength > 60 %}Great
+                    {% elif phrase.strength > 40 %}Good
+                    {% else %}Keep at it {% endif %}
+                {% else %}
+                    <a href="{% url 'frendj:learn' phrase.module_id %}"
+                        class="text-decoration-none link-style">Learn in Module: {{ phrase.module }}</a>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}{% endfor %}{% endif %}   
+    </div>
+</section>
+    {% endif %}
+{% endblock content %}
+
+
+{% block footer %}
+<div class="container p-4 fs-5">
+    {% if strength_data.learned > 0 %}
+        <p>You learned to translate {{ strength_data.learned }} French and English phrases and 
+            achieved an average score of {{ strength_data.average }}%.</p>
+    {% else %}
+            <p>Start learning. Choose a module above or click on Learn in the Home Menu.</p>
+    {% endif %}
+</div>
+{% endblock footer %}

@@ -1,0 +1,154 @@
+{% extends "base_menu.html" %}
+
+
+{% block header %}
+{% if user.is_staff %} 
+<div class="container-fluid d-flex justify-content-between">
+    <p class="fs-5 fw-bolder">App Content Admin</p>
+    <p class="text-end fs-5">Staff profile: {{ profile.name }}</p>
+</div>
+{% endif %}
+{% endblock header %}
+
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row p-3">
+        <div class="col-6">
+            <h5>Add modules</h5>
+            <p class="w-100"><a href="{% url 'staff:add_module' %}"
+                class="btn btn-lg btn-outline-dark w-100">
+                Add new modules</a></p>
+        </div>
+        <div class="col-6">
+            <h5>Edit modules</h5>
+            <form id="edit_module_form" action="" method="get" class="input-group">
+                <select id="edit_module" class="form-control" required>
+                    <option disabled selected value>Select a module to edit</option>
+                    {% if modules %}{% for module in modules %}
+                    <option value="{{ module.id }}">{{ module.name }}</option>
+                    {% endfor %}{% endif %}
+                </select>
+                <button type="submit" class="btn btn-lg btn-outline-dark"
+                    id="edit_module_submit">Select</button>
+            </form>
+        </div>
+    </div>
+    <div class="row p-3">
+        <div class="col-6 pb-3">
+            <h5>Add phrases <span class="text-muted">to modules</span></h5>
+            <form id="add_phrase_form" action="" method="get" class="input-group">
+                <select id="add_phrase" class="form-control" required>
+                    <option disabled selected value>Select a module to add phrases</option>
+                    {% if modules %}{% for module in modules %}
+                    <option value="{{ module.id }}">{{ module.name }}</option>
+                    {% endfor %}{% endif %}
+                </select>
+                <button type="submit" class="btn btn-lg btn-outline-dark"
+                    id="add_phrase_submit">Select</button>
+            </form>
+        </div>
+        <div class="col-6">
+            <h5>Edit phrases</h5>
+            <form id="edit_phrase_form" action="" method="get" class="input-group">
+                <select id="edit_phrase" class="form-control" required>
+                    <option disabled selected value>Select a phrase to edit</option>
+                    {% if phrases %}{% for phrase in phrases %}
+                    <option value="{{ phrase.id }}">{{ phrase.phrase }}</option>
+                    {% endfor %}{% endif %}
+                </select>
+                <button type="submit" class="btn btn-lg btn-outline-dark"
+                    id="edit_phrase_submit">Select</button>
+            </form>
+        </div>
+    </div>
+    <div class="row p-3">
+        <div class="col-6">
+            <h5>Add translations <span class="text-muted">to phrases</span></h5>
+            <form id="add_translation_form" action="" method="get" class="input-group">
+                <select id="add_translation" class="form-control" required>
+                    <option disabled selected value>Select a phrase to add translations</option>
+                    {% if phrases %}{% for phrase in phrases %}
+                    <option value="[{{ phrase.module.id }}, {{ phrase.id }}]">
+                        {{ phrase.phrase }}</option>
+                    {% endfor %}{% endif %}
+                </select>
+                <button type="submit" class="btn btn-lg btn-outline-dark"
+                    id="add_translation_submit">Select</button>
+            </form>
+        </div>
+        <div class="col-6">
+            <h5>Edit translations</h5>
+            <form id="edit_translation_form" action="" method="get" class="input-group">
+                <select id="edit_translation" class="form-control" required>
+                    <option vdisabled selected value>Select a translation to edit</option>
+                    {% if translations %}{% for translation in translations %}
+                    <option value="{{ translation.id }}">{{ translation }}</option>
+                    {% endfor %}{% endif %}
+                </select>
+                <button type="submit" class="btn btn-lg btn-outline-dark"
+                    id="edit_translation_submit">Select</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+
+{% block footer %}
+    {% if user.is_superuser %}
+        <div class="container-fluid">
+            <div class="row p-3">
+                <div class="col-6">
+                    <p class="fs-5"><span class="text-danger fw-bolder">
+                        Warning</span> Mass editing is only suitable for IT staff with 
+                        database skills</p>
+                </div>
+                <div class="col-6 py-3">
+                    <a href="{% url 'staff:csv_db_test' %}"
+                        class="btn btn-lg btn-outline-dark w-100">
+                        Mass edit database content from CSV</a>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+
+        // Format action URL with id based on dropdown selection when button is clicked
+        let edit_module_selector = document.getElementById('edit_module');
+        document.getElementById('edit_module_submit').addEventListener('click', function() {
+            let url = 'edit_module/' + edit_module_selector.value;
+            document.getElementById('edit_module_form').action = url;
+            // change to this Format for all options
+            // "window.location.href='{% url 'staff:manage_content' %}';return false;"
+        });
+
+        let add_phrase_selector = document.getElementById('add_phrase');
+        document.getElementById('add_phrase_submit').addEventListener('click', function() {
+            let url = 'module/' + add_phrase_selector.value + '/add_phrase';
+            document.getElementById('add_phrase_form').action = url;
+        });
+
+        let edit_phrase_selector = document.getElementById('edit_phrase');
+        document.getElementById('edit_phrase_submit').addEventListener('click', function() {
+            let url = 'edit_phrase/' + edit_phrase_selector.value;
+            document.getElementById('edit_phrase_form').action = url;
+        });
+
+        let add_translation_selector = document.getElementById('add_translation');
+        document.getElementById('add_translation_submit').addEventListener('click', function() {
+            const obj = JSON.parse(add_translation_selector.value);
+            let [module_id, phrase_id] = [obj[0], obj[1]];
+            let url = 'module/' + module_id + '/phrase/' + phrase_id + '/add_translation';
+            document.getElementById('add_translation_form').action = url;
+        });
+        
+        let edit_translation_selector = document.getElementById('edit_translation');
+        document.getElementById('edit_translation_submit').addEventListener('click', function() {
+            let url = 'edit_translation/' + edit_translation_selector.value;
+            document.getElementById('edit_translation_form').action = url;
+        });
+    });
+</script>
+{% endblock footer %}

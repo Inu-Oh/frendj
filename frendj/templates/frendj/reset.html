@@ -1,0 +1,28 @@
+{% extends "base_bootstrap.html" %}
+
+{% block nonav %}
+
+{% endblock nonav %}
+
+
+{% block header %}
+
+{% endblock header %}
+
+
+{% block content %}
+    <form id="resetForm" method="post" action="{% url 'frendj:reset' %}">
+        {% csrf_token %}
+        <input type="hidden" name="reset" value="reset">
+    </form>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('resetForm').submit();
+        })
+    </script>
+{% endblock content %}
+
+
+{% block footer %}
+
+{% endblock footer %}

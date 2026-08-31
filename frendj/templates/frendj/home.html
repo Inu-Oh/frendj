@@ -1,0 +1,71 @@
+{% extends "base_menu.html" %}
+{% load humanize %}
+
+
+{% block header %}
+    {% if profile %}    
+    <div class="container-fluid d-flex justify-content-between">
+        <p class="fs-4 fw-bolder">{{ profile.name }}</p>
+        <div style="width:39%" class="pb-2">
+            <label for="prog-bar">Course progress</label>
+            <div class="progress" id="prog-bar" style="width: 100%; height: 25px;">
+                <div class="progress-bar progress-bar-striped bg-danger fw-bold fs-6"
+                    role="progressbar" style="width: {{ progress }}%;"
+                    aria-valuenow="{{ progress }}" aria-valuemin="0" aria-valuemax="100">
+                    {{ progress }}%</div>
+        </div></div>
+        <p class="text-end fs-4">
+            <span class="badge bg-success fw-bold px-3">
+                XP {{ profile.xp|intcomma }}</span></p>
+    </div>
+    {% endif %}
+{% endblock header %}
+
+
+{% block content %} 
+<div class="p-3">
+    <h1 class="fs-3">Activities</h1>
+    {% comment %} {% if unlearned_phrase_count == 0 %}
+    <p>Choose an activity to practice what you've learned.</p>
+    {% else%}
+    <p>Choose an activity to learn new phrases or review past content.</p>
+    {% endif %} {% endcomment %}
+</div>
+<div class="container-fluid p-3 d-flex flex-wrap justify-content-evenly align-items-center">
+    {% if user.is_authenticated and not profile %}
+        Welcome, {{ user.username }}.
+        <br>Click the button to complete your profile.
+        <a href="{% url 'frendj:create_profile' %}"
+            class="btn btn-lg btn-primary m-3 p-3 fs-4">
+            Complete profile &raquo;</a>
+  
+    {% else %}
+    {% if unlearned_phrase_count > 0 %}
+        <p><a href="{% url 'frendj:modules' %}" alt="Learn new expressions"
+            class="btn btn-lg btn-outline-primary mx-4 my-3 fs-4">
+            <span title="Learn new expressions">Learn &#x1F4DA;</span></a></p>
+    {% endif %}
+        {% if learned_phrase_count > 0 %}
+        <p><a href="{% url 'frendj:practice' %}" alt="Strengthen weakest phrases"
+            class="btn btn-lg btn-outline-primary mx-4 my-3 fs-4">
+            <span title="Strengthen weakest phrases">Practice &#x1F4AF;</span></a></p>
+        <p><a href="{% url 'frendj:review' %}" alt="Review what you've learned"
+            class="btn btn-lg btn-outline-primary mx-4 my-3 fs-4">
+            <span title="Review what you've learned">Review &#x1F4AD;</span></a></p>
+        <p><a href="{% url 'frendj:accent' %}"  alt="Use correct French accents"
+            class="btn btn-lg btn-outline-primary mx-4 my-3 fs-4">
+            <span title="Use correct French accents">Extreme &#x1F92F;</span></a></p>
+    {% endif %}
+        <p><a href="{% url 'frendj:glossary' %}" alt="Browse phrases and translations"
+            class="btn btn-lg btn-outline-primary mx-4 my-3 fs-4">
+            <span title="Browse phrases and translations">Study &#x1F4D1;</span></a></p>
+    {% endif %}
+</div>
+{% endblock content %}
+
+
+{% block footer %}
+<div class="container p-5">
+    <p> </p>
+</div>
+{% endblock footer %}

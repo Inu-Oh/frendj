@@ -1,0 +1,41 @@
+{% extends "base_menu.html" %}
+
+
+{% block nonav %}
+<div class="nonav px-3 my-3 navbar rounded-3 shadow-sm">
+    <div class="container-fluid">
+        <p class="fs-4 ps-3 fw-bolder"></p> 
+    </div>
+</div>
+{% endblock nonav %}
+
+
+{% block header %}
+<h1 class="p-3 fs-2">
+    <span class="text-muted">Edit module</span> {{ module.name }}
+</h1>
+{% endblock header %}
+
+
+{% block content %}
+<div class="container-fluid p-3 row">
+    <div class="col-9">
+        <h4 class="py-3">Update field</h4>
+        {% load crispy_forms_tags %}
+        <form action="" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            {{ form|crispy }}
+            <input type="submit" value="Submit"
+                class="btn btn-outline-success me-3 text-dark">
+            <input type="submit" value="Cancel &nbsp;&raquo;&nbsp; return to menu"
+                class="btn btn-outline-danger text-dark"
+                onclick="window.location.href='{% url 'staff:manage_content' %}';return false;">
+        </form>
+    </div>
+</div>
+{% endblock content %}
+
+
+{% block footer %}
+    
+{% endblock footer %}

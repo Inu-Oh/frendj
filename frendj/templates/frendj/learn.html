@@ -1,0 +1,66 @@
+{% extends "base_bootstrap.html" %}
+{% load humanize %}
+
+{% block nonav %}
+<div class="nonav px-3 my-3 navbar rounded-3 shadow-sm">
+    <div class="container-fluid">
+        <p class="fs-4 ps-3 fw-bolder">{{ profile.name }}</p>
+        <div style="width:39%" class="pb-2">
+            <label for="prog-bar">Module progress (Module: {{ module_name }})</label>
+            <div class="progress" id="prog-bar" style="width: 100%; height: 25px;">
+                <div class="progress-bar progress-bar-striped bg-danger fw-bold fs-6"
+                    role="progressbar" style="width: {{ module_progress }}%;"
+                    aria-valuenow="{{ module_progress }}" aria-valuemin="0" aria-valuemax="100">
+                    {{ module_progress }}%</div>
+        </div></div>
+        <p class="text-end p-2 fs-4">
+            <span class="badge bg-success px-3">
+            XP {{ profile.xp|intcomma }}</span></p> 
+    </div>
+</div>
+{% endblock nonav %}
+
+
+{% block header %}
+<div class="container-fluid d-flex justify-content-between">
+    <p class="text-start p-3 fs-3">
+        {% if phrase.language == "French" %}
+        Translate from French to English
+        {% else %}
+        Translate from English to French
+        {% endif %}
+    </p>
+</div>
+{% endblock header %}
+
+
+{% block content %}
+<div class="container-fluid p-3 d-flex justify-content-between">  
+    {% if not phrase %}
+    <p>Learn phrases before doing practice</p>
+    {% else %}
+        <p class="fs-3 ps-5 lh-sm">
+            <span class="fs-6 text-muted"></span><br>
+            {{ phrase }}</p>
+    {% endif %}
+</div>
+{% endblock content %}
+
+
+{% block footer %}
+    <div class="container px-5 lh-sm">
+        {% if message %}
+            <p class="text-danger fs-5 mt-3"><strong>{{ message }}<strong></p>
+        {% endif %}
+        {% load crispy_forms_tags %}
+        <form action="" method="post" id="upload_form" enctype="multipart/form-data">
+            <span class="fs-6 text-muted"></span><br>
+            {% if form.errors %}
+                <p>There was an error. Please try again.</p>
+            {% endif %}
+            {% csrf_token %}
+            {{ form|crispy }}
+        </form>
+    </div>
+
+{% endblock footer %}

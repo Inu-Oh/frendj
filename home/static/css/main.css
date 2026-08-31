@@ -1,0 +1,47 @@
+:root {
+    --body_bg:hsl(229, 33%, 94%);
+    --nav_bg:#e7b0ac;
+    --main_bg:#e4e1d2;
+    --header_bg:#e3d3c3;
+    --footer_bg:#cad9db;
+}
+
+body {
+    background-color: var(--body_bg) !important;
+}
+
+.nav, .nonav {
+    background-color: var(--nav_bg) !important;
+}
+
+#gravatar {
+    width: 39px;
+}
+
+.header {
+    background-color: var(--header_bg) !important;
+}
+
+.main, #container-card {
+    background-color: var(--main_bg) !important;
+} 
+
+#container-card {
+    border: none;
+    max-height: 37em;
+    overflow-y: auto;
+}
+
+.footer {
+    background-color: var(--footer_bg) !important;
+}
+
+.link-style {
+    color: navy !important;
+    text-decoration: none !important;
+}
+
+.link-style:hover, .muted-link-style:hover {
+    color: navy !important;
+    text-shadow: 0 0 3px hotpink !important;
+}

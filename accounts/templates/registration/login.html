@@ -1,0 +1,49 @@
+{% extends "base_bootstrap.html" %}
+
+{% block nonav %}
+<div class="nav p-2 my-3 navbar navbar-expand-sm navbar-light bg-light rounded-3 shadow-sm">
+    <div class="container-fluid">
+        <p> </p>
+    </div>
+</div>
+{% endblock nonav %}
+
+
+{% block header %}
+    <h1 class="display-3 text-muted pt-3">Log in or sign up</h1>
+{% endblock header %}
+
+
+{% block content %}
+    <div class="container p-3">
+        <form method="post" action="{% url 'login' %}">
+            {% if form.errors %}
+                <p>Your username and password didn't match. Please try again.</p>
+            {% endif %}
+            {% csrf_token %}
+            <div class="form-floating">
+                <input class="form-control" type="text" name="username" autofocus autocapitalize="none" 
+                    autocomplete="username" maxlength="150" required id="id_username" />
+                <label for="id_username" class="form-label" placeholder="Username">
+                    Username</label>
+                <div>{{ form.username.errors }}</div>
+            </div>
+            <br/>
+            <div class="form-floating">
+                <input class="form-control" type="password" name="password"
+                    autocomplete="current-password" required id="id_password" />
+                <label for="id_password" class="form-label">
+                    Password</label>
+                <div>{{ form.password.errors }}</div>
+            </div>
+            <div class="container-fluid pt-3 d-flex justify-content-between">
+                <input type="submit" class="btn btn-success" value="Login &raquo;" />
+                <input type="hidden" class="next" value="{{ next }}" />
+                {% comment %} <span class="pt-2">or</span> {% endcomment %}
+                <a class="btn btn-primary" href="{% url 'accounts:register' %}">
+                    Create a new account &raquo;</a>
+            </div>
+        </form>
+    </div>
+    
+{% endblock content %}

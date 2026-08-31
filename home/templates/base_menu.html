@@ -1,0 +1,48 @@
+{% extends "base_bootstrap.html" %}
+
+{% load app_tags %} <!-- see home/templatetags/app_tags.py -->
+
+{% block navbar %}
+<nav class="nav p-2 my-3 navbar navbar-expand-sm navbar-light bg-light rounded-3 shadow-sm">
+    <div class="container-fluid">
+        {% url 'frendj:home' as x %}
+        <a class="navbar-brand link-style" href="{{ x }}">Home Menu</a>
+        <ul class="navbar-nav container-fluid d-flex justify-content-around">
+{% comment %} {% if request.get_full_path == x %}class="active"{% endif %} {% endcomment %}
+        {% if user.is_staff %}
+            <li>
+                <a class="nav-link link-style" href="{% url 'staff:manage_content' %}" role="button">
+                    Manage Content</a>
+            </li>
+        {% endif %}
+            <li>
+                <a class="nav-link link-style" href="{% url 'frendj:glossary' %}" role="button">
+                    Browse Glossary</a>
+            </li>
+        </ul>
+        {% if user.is_authenticated %}
+        <ul class="navbar-nav">
+            <li class="nav-item dropdown">
+                <a class"nav-link link-style dropdown-toggle" href="#" id="rightnavDropdown" role="button"
+                    data-bs-toggle="dropdown" aria-expanded="false">
+                    <img id="gravatar" class="rounded-3"
+                        src="{{ user|gravatar:60}}" /><strong class="caret"></strong>
+                </a>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="rightnavDropdown">
+                    <form action="{% url 'logout' %}?next={{ x }}" method="post">
+                        {% csrf_token %}
+                        <button class="dropdown-item link-style" type="submit">Logout</button>
+                    </form>
+                </ul>
+            </li>
+        </ul>
+        {% else %}
+        <ul class="navbar-nav">
+            <li class="nav-item">
+                <a class="nav-link link-style" href="{% url 'login' %}?next={{ x }}">Login</a>
+            </li>
+        </ul>
+        {% endif %}
+    </div>
+</nav>
+{% endblock navbar %}

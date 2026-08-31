@@ -1,0 +1,45 @@
+{% extends "base_menu.html" %}
+{% load humanize %}
+
+{% block header %}
+    {% if profile %}    
+    <div class="container-fluid d-flex justify-content-between">
+        <p class="fs-4 fw-bolder">{{ profile.name }}</p>
+        {% if module_complete_msg %}
+            <p class="text-primary fs-4 text-center" style="width:50%">
+                <strong>{{ module_complete_msg }}<strong></p>
+        {% else %}
+            <div style="width:39%" class="pb-2">
+                <label for="prog-bar">Course progress</label>
+                <div class="progress" id="prog-bar" style="width: 100%; height: 25px;">
+                    <div class="progress-bar progress-bar-striped bg-danger fw-bold fs-6"
+                        role="progressbar" style="width: {{ progress }}%;"
+                        aria-valuenow="{{ progress }}" aria-valuemin="0" aria-valuemax="100">
+                        {{ progress }}%</div>
+            </div></div>
+        {% endif %}
+        <p class="text-end fs-4">
+            <span class="badge bg-success fw-bold px-3">
+                XP {{ profile.xp|intcomma }}</span></p>
+    </div>
+    {% endif %}
+{% endblock header %}
+
+
+{% block content %} 
+<div class="container-fluid p-3 d-flex flex-wrap justify-content-evenly align-items-center">
+    {% for module in modules %}
+    {% for open_module in open_modules %}{% if open_module == module %}
+    <p class="mx-5 my-3"><a href="{% url 'frendj:learn' module.id %}"
+        class="btn btn-lg btn-outline-primary">{{ module.name }}</a></p>
+    {% endif %}{% endfor %}
+    {% for closed_module in closed_modules %}{% if closed_module == module %}
+    <p class="btn btn-lg btn-outline-secondary text-dark disabled mx-5 my-3">
+        {{ module.name }}</p>
+    {% endif %}{% endfor %}
+    {% endfor %}
+</div>
+{% endblock content %}
+
+
+{% block footer %}{% endblock footer %}

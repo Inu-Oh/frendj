@@ -1,0 +1,13 @@
+.conda
+.env
+*.swp
+__pycache__
+*.sqlite3
+*.csv
+.DS_Store
+github_settings.py
+*.pyc
+**/migrations/**
+!**/migrations
+!**/migrations/__init__.py
+.vscode

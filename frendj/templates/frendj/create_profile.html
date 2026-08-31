@@ -1,0 +1,30 @@
+{% extends "base_menu.html" %}
+
+{% block nonav %}
+<div class="nav p-2 my-3 navbar navbar-expand-sm navbar-light bg-light rounded-3 shadow-sm">
+    <div class="container-fluid">
+        <p> </p>
+    </div>
+</div>
+{% endblock nonav %}
+
+
+{% block header %}
+    <h1 class="display-3 text-muted pt-3">Set up your profile</h1>   
+{% endblock header %}
+
+
+{% block content %}
+    <div class="container p-3">
+        {% load crispy_forms_tags %}
+        <form action="" method="post" id="upload_form" enctype="multipart/form-data">
+            {% if form.errors %}
+                <p>There was an error with your form. Please try again.</p>
+            {% endif %}
+            {% csrf_token %}
+            {{ form|crispy }}
+            <input type="submit" value="Submit &raquo;" class="btn btn-lg btn-success">
+        </form>
+    </div>
+
+{% endblock content %}
