@@ -28,7 +28,12 @@ class Module(models.Model):
     name = models.CharField(
         unique=True,
         max_length=24,
-        validators=[MinLengthValidator(3, "This name is too short")]
+        validators=[MinLengthValidator(3, "Name is too short")]
+    )
+    description = models.CharField(
+        max_length=124,
+        validators=[MinLengthValidator(5, "Description is too short")],
+        default="Enter a description"
     )
 
     def is_valid_module(self):
@@ -48,7 +53,7 @@ class Phrase(models.Model):
     language = models.CharField(max_length=12, choices=LANGUAGES, default=FRENCH)
     phrase = models.CharField(
         max_length=248,
-        validators=[MinLengthValidator(1, "This phrase is too short")]
+        validators=[MinLengthValidator(1, "Phrase is too short")]
     )
     phrase_strength = models.ManyToManyField(settings.AUTH_USER_MODEL,
         through='UserPhraseStrength')
@@ -84,7 +89,7 @@ class Translation(models.Model):
     language = models.CharField(max_length=12, choices=LANGUAGES, default=FRENCH)
     translation = models.CharField(
         max_length=248,
-        validators=[MinLengthValidator(1, "This phrase is too short")]
+        validators=[MinLengthValidator(1, "Translation is too short")]
     )
     phrase = models.ForeignKey(Phrase, null=True, on_delete=models.SET_NULL,
         related_name='phrase_translations')

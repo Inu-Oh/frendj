@@ -26,42 +26,64 @@ def eval_tranlation(user_answer: str, correct_translation: str) -> tuple[float, 
     Evaluates the test score for a translation entered by the user
     in comparison to correct translation.
     """
-    s = SequenceMatcher(None, user_answer, correct_translation)
+    if user_answer == correct_translation:
+        translation_score, error_count = 100, 0
+    else:
+        # is_junk = lambda char: char in "-' " isjunk=is_junk
+        matcher = SequenceMatcher(None, a=user_answer, b=correct_translation)
+        translation_score = matcher.ratio() * 100
 
-    translation_score = s.ratio() * 100
-
-    error_count = 0
-    for tag, i1, i2, j1, j2 in s.get_opcodes():
-        if tag in ('replace', 'delete'):
-            error_count += (i2 - i1) # Length of segment in first sequence
-        if tag == 'insert':
-            error_count += (j2 - j1) # Length of segment in second sequence
-
+        error_count = 0
+        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+            if tag in ('replace', 'delete'):
+                error_count += (i2 - i1) # Length of segment in user answer
+            if tag == 'insert':
+                error_count += (j2 - j1) # Length of segment in correct translation
+    # TODO - Remove print and dev notes after correcting errors
+    print(translation_score, error_count, user_answer, correct_translation)
     return translation_score, error_count
 
-# TODO - Remove errors and score from this function
-def feedback(user_answer, correct_translation, error_count, translation_score):
+# TODO - Clean up this function and above after testing
+def feedback(
+        user_answer: str, 
+        correct_translation: str, 
+        error_count: int, 
+        translation_score: float
+    ) -> str:
     """
     Generates HTML style tags to provide better feedback on translation accuracy.
     Used for learn, practice and review exercise view classes.
     """
-    # TODO - Change to three possible conditions
-    # if few errors, chars are highlighted - max one char per word - two per phrase
-    # otherwise words are highlighted 
-    if translation_score > 50 and error_count < 5:
-        s = SequenceMatcher(None, correct_translation, user_answer)
+    # is_junk = lambda char: char in "-'" isjunk=is_junk
+    matcher = SequenceMatcher(None, a=user_answer, b=correct_translation)
 
-        output = ""
-        i = 0
-        for match in s.get_matching_blocks():
-            if match.b > i:
-                output += '<span class="text-danger">' + user_answer[i:match.b] + '</span>'
-            output += user_answer[match.b:match.b+match.size]
-            i = match.b + match.size
+    # Return no feedback for correct answers
+    if translation_score >= 100 and error_count <= 0:
+        output = user_answer
+    # Full feedback string is red if too many errors
+    elif translation_score < 70 or error_count > 5: 
+        return f'<span class="text-danger">{user_answer}</span>' 
+    # # Add feedback to the misspelled character
+    # elif error_count == 1:
+    #     i, output = 0, ""
+    #     for match in matcher.get_matching_blocks():
+    #         if match.b > i:
+    #             output += f'<span class="text-danger">{user_answer[i:match.b]}</span>'
+    #         output += user_answer[match.b:match.b+match.size]
+    #         i = match.b + match.size
+    # Add feedback to misspelled words
+    else: # elif translation_score >= 75 and error_count <= 3:
+        words = []
+        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+            if tag == 'replace':
+                words.append(f'<span class="text-danger">{user_answer[i1:i2]}</span>')
+            elif tag == 'insert':
+                words.append(f'<span class="text-danger">{correct_translation[j1:j2]}</span>')
+            elif tag == 'equal':
+                words.append(user_answer[i1:i2])
+        output = "".join(words)
 
-        return '<span class="text-success">' + output + '</span>' 
-    else:
-        '<span class="text-danger">' + user_answer + '</span>'
+    return f'<span class="text-success">{output}</span>' 
 
 
 class Home(LoginRequiredMixin, TemplateView):
@@ -399,44 +421,38 @@ class LearnView(LoginRequiredMixin, View):
                 'user_phrase_strength': user_phrase_strength, # Phrase strength object
             }
             return render(request, self.template_name, context)
-        translation_langauge = translations[0].language
-        phrase_language = "French" if translation_langauge == "English" else "English"
 
         # Clean user's answer and escape any html entities before testing
         user_answer = html.escape(form.cleaned_data['answer'].strip())
+        cleaned_answer = unidecode(user_answer.lower())
 
         # Track the phrase as learned by the user and initiate view count.
         user_phrase_strength.learned = True
         user_phrase_strength.views = INITIATE_COUNT
 
         # Set variables to evaluate score and prepare feedback.
-        response_score = UNASSESSED_SCORE
+        score = UNASSESSED_SCORE
         errors = MAX_ERRORS
-        matched_translation = ""
-        feedback_html = ""
-        cleaned_answer = unidecode(user_answer.lower())
 
         # Find a translation that best matches the user's answer and evaluate score and errors
-        for translation in translations:
-            cleaned_test_phrase = unidecode(translation.translation.lower())
-            translation_score, error_count = eval_tranlation(cleaned_answer, cleaned_test_phrase)
-            if translation_score > response_score:
-                response_score = translation_score
-                errors = error_count
-                matched_translation = cleaned_test_phrase
-        if not matched_translation: # Use a dummy translation if user's answer has no match
-            matched_translation = translations[0].translation
+        for tr in translations:
+            cleaned_test_phrase = unidecode(tr.translation.lower())
+            curr_score, errors = eval_tranlation(cleaned_answer, cleaned_test_phrase)
+            if curr_score > score:
+                score = curr_score
+                matched_translation = tr.translation
 
-        # Generate feedback to display to user
-        feedback_html = feedback(user_answer, matched_translation, errors, response_score)
+        # Generate feedback to display to user using best match or dummy
+        try: 
+            matched_translation
+            feedback_html = feedback(user_answer, matched_translation, errors, score)
+        except NameError:
+            feedback_html = feedback(user_answer, translations[0].translation, errors, score)
 
         # If evaluation passes mark, add points to user profile and raise user phrase strength
-        translation_len = len(
-            matched_translation.replace(" ", "").translate(str.maketrans("", "", string.punctuation))
-        )
-        if ((translation_len < 10) and (response_score >= 85)) or response_score >= 90:
+        if score >= 90:
             user_phrase_strength.correct += 1
-            user_phrase_strength.strength = round(response_score)
+            user_phrase_strength.strength = round(score)
             profile.xp += 5
             profile.save()
             response_accuracy = True
@@ -453,7 +469,7 @@ class LearnView(LoginRequiredMixin, View):
         request.session['response_accuracy'] = response_accuracy
         request.session['testing_view'] = 'frendj:learn'
         request.session['module_id'] = pk
-        request.session['phrase_language'] = phrase_language
+        request.session['phrase_language'] = phrase.language
         request.session['feedback_html'] = feedback_html
         return redirect(success_url)
 
@@ -535,36 +551,33 @@ class PracticeView(LoginRequiredMixin, View):
 
         # Clean user's answer and escape any html entities before testing
         user_answer = html.escape(form.cleaned_data['answer'].strip())
-
-        # Increment user view of current phrase
-        user_phrase_strength.views += 1
-
-        # Set variables to evaluate user's translation of current prhase
-        response_score = UNASSESSED_SCORE
-        errors = MAX_ERRORS
-        matched_translation = ""
-        feedback_html = ""
         cleaned_answer = unidecode(user_answer.lower())
+
+        # Track the phrase as learned by the user and initiate view count.
+        user_phrase_strength.learned = True
+        user_phrase_strength.views = INITIATE_COUNT
+
+        # Set variables to evaluate score and prepare feedback.
+        score = UNASSESSED_SCORE
+        errors = MAX_ERRORS
 
         # Find a translation that best matches the user's answer and evaluate score and errors
         for translation in translations:
             cleaned_test_phrase = unidecode(translation.translation.lower())
-            translation_score, error_count = eval_tranlation(cleaned_answer, cleaned_test_phrase)
-            if translation_score > response_score:
-                response_score = translation_score
-                errors = error_count
-                matched_translation = cleaned_test_phrase
+            curr_score, errors = eval_tranlation(cleaned_answer, cleaned_test_phrase)
+            if curr_score > score:
+                score = curr_score
+                matched_translation = translation.translation
         if not matched_translation: # Use a dummy translation if user's answer has no match
-            matched_translation =  translations[0].translation
-        
+            matched_translation = translations[0].translation
+
         # Generate feedback to display to user
-        feedback_html = feedback(user_answer, matched_translation, errors, response_score)
+        feedback_html = feedback(user_answer, matched_translation, errors, score)
 
         # If evaluation passes mark, add points to user profile and raise user phrase strength
-        translation_len = len(
-            matched_translation.replace(" ", "").translate(str.maketrans("", "", string.punctuation))
-        )
-        if (translation_len < 10 and response_score >= 85) or response_score >= 90:
+        translation_len = len(matched_translation.replace(" ", "").translate(
+            str.maketrans("", "", string.punctuation)))
+        if (translation_len < 10 and score >= 85) or score >= 90:
             user_phrase_strength.correct += 1
             response_accuracy = True
             profile.xp += 5
@@ -660,36 +673,33 @@ class ReviewView(LoginRequiredMixin, View):
 
         # Clean user's answer and escape any html entities before testing
         user_answer = html.escape(form.cleaned_data['answer'].strip())
-        
-        # Increment user view of current phrase
-        user_phrase_strength.views += 1
+        cleaned_answer = unidecode(user_answer.lower())
+
+        # Track the phrase as learned by the user and initiate view count.
+        user_phrase_strength.learned = True
+        user_phrase_strength.views = INITIATE_COUNT
 
         # Set variables to evaluate score and prepare feedback.
-        response_score = UNASSESSED_SCORE
+        score = UNASSESSED_SCORE
         errors = MAX_ERRORS
-        matched_translation = ""
-        feedback_html = ""
-        cleaned_answer = unidecode(user_answer.lower())
 
         # Find a translation that best matches the user's answer and evaluate score and errors
         for translation in translations:
             cleaned_test_phrase = unidecode(translation.translation.lower())
-            translation_score, error_count = eval_tranlation(cleaned_answer, cleaned_test_phrase)
-            if translation_score > response_score:
-                response_score = translation_score
-                errors = error_count
-                matched_translation = cleaned_test_phrase
-        if not matched_translation:
-            matched_translation =  translations[0].translation
-        
+            curr_score, errors = eval_tranlation(cleaned_answer, cleaned_test_phrase)
+            if curr_score > score:
+                score = curr_score
+                matched_translation = translation.translation
+        if not matched_translation: # Use a dummy translation if user's answer has no match
+            matched_translation = translations[0].translation
+
         # Generate feedback to display to user
-        feedback_html = feedback(user_answer, matched_translation, errors, response_score)
+        feedback_html = feedback(user_answer, matched_translation, errors, score)
 
         # If evaluation passes mark, add points to user profile and raise user phrase strength
-        translation_length = len(
-            matched_translation.replace(" ", "").translate(str.maketrans("", "", string.punctuation))
-        )
-        if ((translation_length < 10) and (response_score >= 85)) or response_score >= 90:
+        translation_len = len(matched_translation.replace(" ", "").translate(
+            str.maketrans("", "", string.punctuation)))
+        if ((translation_len < 10) and (score >= 85)) or score >= 90:
             user_phrase_strength.correct += 1
             profile.xp += 5
             profile.save()
@@ -788,8 +798,9 @@ class AccentView(LoginRequiredMixin, View):
             }
             return render(request, self.template_name, context)
 
-        # Clean user's answer and escape any html entities before testing
+        # Clean user's answer, escape any html entities, and remove punctuation, before testing
         user_answer = html.escape(form.cleaned_data['answer'].strip())
+        test_user_ans = user_answer.translate(str.maketrans("", "", string.punctuation))
 
         # Increment user view of current phrase
         user_phrase_strength.views += 1
@@ -799,19 +810,25 @@ class AccentView(LoginRequiredMixin, View):
         
         # Find a translation that exactly matches the user's answer. If yes, add points. Generate feedback.
         for translation in translations:
-            test_user_ans = user_answer.translate(str.maketrans("", "", string.punctuation))
             test_translation = translation.translation.translate(str.maketrans("", "", string.punctuation))
-            response_score, error_count = eval_tranlation(test_user_ans.lower(), test_translation.lower())
+            score, errors = eval_tranlation(test_user_ans.lower(), test_translation.lower())
             if test_user_ans == test_translation:
                 user_phrase_strength.correct += 1
-                profile.xp += 5
+                profile.xp += 9
                 profile.save()
                 response_accuracy = True
+                matched_translation = translation.translation
                 break
-            elif response_score > highest_score:
-                response_accuracy = False
-            feedback_html = feedback(user_answer, translation.translation, error_count, response_score)
-        
+            elif score > highest_score:
+                response_accuracy = False    
+
+        # Generate feedback to display to user using best match or dummy
+        try: 
+            matched_translation
+            feedback_html = feedback(user_answer, matched_translation, errors, score)
+        except NameError:
+            feedback_html = feedback(user_answer, translations[0].translation, errors, score)
+      
         # Update the user phrase strength score.
         user_phrase_strength.strength = ((
             user_phrase_strength.views - (user_phrase_strength.views - user_phrase_strength.correct))
