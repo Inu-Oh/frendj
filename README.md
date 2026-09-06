@@ -1,7 +1,13 @@
-# frendj - language app
+# frendj - French / English language learning web app
 A language learning application set up for learning French from English, written in Django 6.1. Languages can be changed in the Language model.
 Phrases and translations can be loaded from a CSV file and edited by admin / staff users on pages that require staff permission.
-Update of Tommy, Django 4.2 app.
+
+## Upgrades from Tommy
+- Update to Django 6.1 from Tommy, Django 4.2 app.
+
+## Features
+### PosgreSQL
+For development, using psycop2-binary installation. For **production** switch to psycopg2: https://www.psycopg.org/docs/install.html .
 
 ## Plans
 - Improve test feedback and evaluation functions

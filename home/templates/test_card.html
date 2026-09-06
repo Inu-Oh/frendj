@@ -1,0 +1,37 @@
+{% load humanize %}
+
+
+<main class="main card bg-light p-5">
+    <h3 class="text-secondary fs-4">
+        Translate
+        <span class="badge bg-secondary">
+            {% if phrase.language == "French" %}
+                French to English
+            {% else %}
+                English to French
+            {% endif %}
+        </span>
+    </h3>
+
+    {% if not phrase %}
+    <p class="fs-3 lh-sm py-3">Learn phrases before doing practice</p>
+    {% else %}
+        <h1 class="fs-2 py-5 ms-3 text-center">{{ phrase }}</h1>
+    {% endif %}
+
+    {% if message %}
+        <p class="text-danger fs-5">
+            <strong>{{ message }}<strong>
+        </p>
+    {% endif %}
+
+    {% load crispy_forms_tags %}
+    <form action="" method="post" enctype="multipart/form-data"
+        class="pt-4">
+        {% if form.errors %}
+            <p>There was an error. Please try again.</p>
+        {% endif %}
+        {% csrf_token %}
+        {{ form|crispy }}
+    </form>
+</main>

@@ -30,11 +30,11 @@ class Module(models.Model):
         max_length=24,
         validators=[MinLengthValidator(3, "Name is too short")]
     )
-    description = models.CharField(
-        max_length=124,
-        validators=[MinLengthValidator(5, "Description is too short")],
-        default="Enter a description"
-    )
+    # description = models.CharField(
+    #     max_length=124,
+    #     validators=[MinLengthValidator(5, "Description is too short")],
+    #     default="Enter a description"
+    # )
 
     def is_valid_module(self):
         return 3 <= len(self.name) <= 24

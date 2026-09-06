@@ -26,6 +26,7 @@ def eval_tranlation(user_answer: str, correct_translation: str) -> tuple[float, 
     Evaluates the test score for a translation entered by the user
     in comparison to correct translation.
     """
+    
     if user_answer == correct_translation:
         translation_score, error_count = 100, 0
     else:
@@ -54,12 +55,10 @@ def feedback(
     Generates HTML style tags to provide better feedback on translation accuracy.
     Used for learn, practice and review exercise view classes.
     """
-    # is_junk = lambda char: char in "-'" isjunk=is_junk
-    matcher = SequenceMatcher(None, a=user_answer, b=correct_translation)
 
     # Return no feedback for correct answers
     if translation_score >= 100 and error_count <= 0:
-        output = user_answer
+        return f'<span class="text-success">{user_answer}</span>' 
     # Full feedback string is red if too many errors
     elif translation_score < 70 or error_count > 5: 
         return f'<span class="text-danger">{user_answer}</span>' 
@@ -73,6 +72,8 @@ def feedback(
     #         i = match.b + match.size
     # Add feedback to misspelled words
     else: # elif translation_score >= 75 and error_count <= 3:
+        # is_junk = lambda char: char in "-'" isjunk=is_junk
+        matcher = SequenceMatcher(None, a=user_answer, b=correct_translation)
         words = []
         for tag, i1, i2, j1, j2 in matcher.get_opcodes():
             if tag == 'replace':
@@ -81,9 +82,7 @@ def feedback(
                 words.append(f'<span class="text-danger">{correct_translation[j1:j2]}</span>')
             elif tag == 'equal':
                 words.append(user_answer[i1:i2])
-        output = "".join(words)
-
-    return f'<span class="text-success">{output}</span>' 
+        return f'<span class="text-success">{"".join(words)}</span>' 
 
 
 class Home(LoginRequiredMixin, TemplateView):
@@ -126,7 +125,13 @@ class Home(LoginRequiredMixin, TemplateView):
             progress = int((learned_phrase_count * 100) / (learned_phrase_count + unlearned_phrase_count))
         else:
             progress = 0
-        
+        # Set dummy values in case vocabulary database has not been populated
+        try:
+            unlearned_phrase_count
+            learned_phrase_count
+        except:
+            unlearned_phrase_count = 1
+            learned_phrase_count = 0
 
         context = {
             'profile': profile,

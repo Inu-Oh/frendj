@@ -4,6 +4,7 @@ Django==6.1
 django-bootstrap5==26.3
 django-crispy-forms==2.7
 django-extensions==4.1
+psycopg2-binary==2.9.12
 python-decouple==3.8
 sqlparse==0.6.0
 Unidecode==1.4.0

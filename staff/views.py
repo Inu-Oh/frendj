@@ -372,7 +372,7 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
             }
             return render(request, self.template_name, context)
 
-        # Check that phrase id is entered correctly
+        # Check that phrase id is entered correctly for updates
         phrases = Phrase.objects.all()
         row, non_ints, wrong_ids = 1, "", ""
         for item in data_list:
@@ -382,11 +382,14 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
                     if not non_ints:
                         non_ints += "Phrase IDs at these rows should be an intager number: "
                     non_ints += f"{row}, "
-                if not phrases.get(id=phrase_id):
-                    if not wrong_ids:
-                        wrong_ids += "Phrase IDs at the following rows don't exist in the database."
-                        wrong_ids += "Delete if the it's a new phrase or "
-                        worng_ids += "correct if the phrase is already in the database: "
+                try:
+                    if not phrases.get(id=phrase_id):
+                        if not wrong_ids:
+                            wrong_ids += "Phrase IDs at the following rows don't exist in the database."
+                            wrong_ids += "Delete if the it's a new phrase or "
+                            worng_ids += "correct if the phrase is already in the database: "
+                        wrong_ids += f"ID {phrase_id} at row {row}, "
+                except:
                     wrong_ids += f"ID {phrase_id} at row {row}, "
         if non_ints or wrong_ids:
             message += "Errors with data entry for phrase ID column. " 

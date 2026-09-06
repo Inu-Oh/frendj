@@ -1,47 +1,82 @@
 :root {
     --body_bg:hsl(229, 33%, 94%);
-    --nav_bg:#e7b0ac;
+    /* --nav_bg:#e7b0ac;
     --main_bg:#e4e1d2;
     --header_bg:#e3d3c3;
-    --footer_bg:#cad9db;
+    --footer_bg:#cad9db; */
+    --link-color: #126;
+    --link-hover: rgb(69, 87, 162);
+    /* --list-item-hover: rgb(201, 208, 235); */
+    --link-shadow: hotpink;
 }
 
 body {
     background-color: var(--body_bg) !important;
+    user-select: none
 }
 
-.nav, .nonav {
-    background-color: var(--nav_bg) !important;
+/* .info-pane, .main,  */
+.nonav {
+    background-color: var(--body_bg) !important;
+    position: fixed;
+    margin: 2rem;
 }
 
 #gravatar {
     width: 39px;
 }
 
-.header {
-    background-color: var(--header_bg) !important;
+.drop {
+    background-color: var(--body_bg) !important;
 }
 
-.main, #container-card {
-    background-color: var(--main_bg) !important;
-} 
+/* .list-group-item:hover {
+    background-color: var(--list-item-hover) !important;
+} */
+
+/* .main, .info-pane {
+    top: 4.3rem;
+} */
+
+/* .main {
+    left: 0;
+}
+
+#info-pane {
+    right: 0;
+} */
+
+#prog-bar {
+    /* width: 100%;  */
+    height: 1.5rem;
+}
+
+#modules-prog-bar {
+    width: 100%;
+    height: 1.5rem;
+}
 
 #container-card {
+    background-color: var(--body_bg) !important;
     border: none;
     max-height: 37em;
     overflow-y: auto;
 }
 
 .footer {
-    background-color: var(--footer_bg) !important;
+    background-color: var(--body_bg) !important;
 }
 
 .link-style {
-    color: navy !important;
+    color: var(--link-color) !important;
     text-decoration: none !important;
 }
 
 .link-style:hover, .muted-link-style:hover {
-    color: navy !important;
-    text-shadow: 0 0 3px hotpink !important;
+    color: var(--link-hover) !important;
+    text-shadow: 0 0 1.5px var(--link-shadow) !important;
+}
+
+#feedback-button:hover {
+    background-color: #f8f9fa !important;
 }
