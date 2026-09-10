@@ -1,16 +1,8 @@
 {% extends "base_bootstrap.html" %}
 
-{% block nonav %}
-<div class="nav p-2 my-3 navbar navbar-expand-sm navbar-light bg-light rounded-3 shadow-sm">
-    <div class="container-fluid">
-        <p> </p>
-    </div>
-</div>
-{% endblock nonav %}
-
 
 {% block header %}
-    <h1 class="display-3 text-muted pt-3">Log in or sign up</h1>
+    <h1 class="display-3 text-muted pt-3">Log in</h1>
 {% endblock header %}
 
 
@@ -39,7 +31,6 @@
             <div class="container-fluid pt-3 d-flex justify-content-between">
                 <input type="submit" class="btn btn-success" value="Login &raquo;" />
                 <input type="hidden" class="next" value="{{ next }}" />
-                {% comment %} <span class="pt-2">or</span> {% endcomment %}
                 <a class="btn btn-primary" href="{% url 'accounts:register' %}">
                     Create a new account &raquo;</a>
             </div>
