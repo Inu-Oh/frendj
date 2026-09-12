@@ -19,6 +19,7 @@ from .forms import ProfileForm, TestForm
 
 # Constants for setting user phrase view counts, evaluating accuracy and errors in testing views.
 INITIATE_COUNT, UNASSESSED_ACCURACY, UNASSESSED_SCORE, MAX_ERRORS = 1, False, -1, 100
+PLUS_5_XP, PLUS_9_XP = 5, 9
 
 
 def eval_tranlation(user_answer: str, correct_translation: str) -> tuple[float, int]:
@@ -30,7 +31,6 @@ def eval_tranlation(user_answer: str, correct_translation: str) -> tuple[float, 
     if user_answer == correct_translation:
         translation_score, error_count = 100, 0
     else:
-        # is_junk = lambda char: char in "-' " isjunk=is_junk
         matcher = SequenceMatcher(None, a=user_answer, b=correct_translation)
         translation_score = matcher.ratio() * 100
 
@@ -44,7 +44,6 @@ def eval_tranlation(user_answer: str, correct_translation: str) -> tuple[float, 
     print(translation_score, error_count, user_answer, correct_translation)
     return translation_score, error_count
 
-# TODO - Clean up this function and above after testing
 def feedback(
         user_answer: str, 
         correct_translation: str, 
@@ -62,17 +61,7 @@ def feedback(
     # Full feedback string is red if too many errors
     elif translation_score < 75 or error_count >= 4: 
         return f'<span class="text-danger">{user_answer}</span>' 
-    # # Add feedback to the misspelled character
-    # elif error_count == 1:
-    #     i, output = 0, ""
-    #     for match in matcher.get_matching_blocks():
-    #         if match.b > i:
-    #             output += f'<span class="text-danger">{user_answer[i:match.b]}</span>'
-    #         output += user_answer[match.b:match.b+match.size]
-    #         i = match.b + match.size
-    # Add feedback to misspelled words
-    else: # elif translation_score >= 75 and error_count <= 3:
-        # is_junk = lambda char: char in "-'" isjunk=is_junk
+    else: # Provide more detailed feedback if errors are minimal
         matcher = SequenceMatcher(None, a=user_answer, b=correct_translation)
         words = []
         for tag, i1, i2, j1, j2 in matcher.get_opcodes():
@@ -366,6 +355,7 @@ class LearnView(LoginRequiredMixin, View):
                 del request.session['response_accuracy']
                 del request.session['phrase_language']
                 del request.session['feedback_html']
+                del request.session['xp_reward']
             except:
                 pass
 
@@ -458,7 +448,7 @@ class LearnView(LoginRequiredMixin, View):
         if score >= 90:
             user_phrase_strength.correct += 1
             user_phrase_strength.strength = round(score)
-            profile.xp += 5
+            profile.xp += PLUS_5_XP
             profile.save()
             response_accuracy = True
         else:
@@ -476,6 +466,7 @@ class LearnView(LoginRequiredMixin, View):
         request.session['module_id'] = pk
         request.session['phrase_language'] = phrase.language
         request.session['feedback_html'] = feedback_html
+        request.session['xp_reward'] = PLUS_5_XP
         return redirect(success_url)
 
 
@@ -506,6 +497,7 @@ class PracticeView(LoginRequiredMixin, View):
                 del request.session['response_accuracy']
                 del request.session['phrase_language']
                 del request.session['feedback_html']
+                del request.session['xp_reward']
             except:
                 pass
 
@@ -567,33 +559,34 @@ class PracticeView(LoginRequiredMixin, View):
         errors = MAX_ERRORS
 
         # Find a translation that best matches the user's answer and evaluate score and errors
-        for translation in translations:
-            cleaned_test_phrase = unidecode(translation.translation.lower())
+        for tr in translations:
+            cleaned_test_phrase = unidecode(tr.translation.lower())
             curr_score, errors = eval_tranlation(cleaned_answer, cleaned_test_phrase)
             if curr_score > score:
                 score = curr_score
-                matched_translation = translation.translation
-        if not matched_translation: # Use a dummy translation if user's answer has no match
-            matched_translation = translations[0].translation
+                matched_translation = tr.translation
+                feedback_html = feedback(user_answer, matched_translation, errors, score)
 
-        # Generate feedback to display to user
-        feedback_html = feedback(user_answer, matched_translation, errors, score)
+        # Generate feedback to display to user using best match or dummy
+        try: 
+            feedback_html
+        except NameError:
+            feedback_html = feedback(user_answer, translations[0].translation, errors, score)
 
-        # If evaluation passes mark, add points to user profile and raise user phrase strength
-        translation_len = len(matched_translation.replace(" ", "").translate(
-            str.maketrans("", "", string.punctuation)))
-        if (translation_len < 10 and score >= 85) or score >= 90:
+        # If evaluation passes mark, add points to user profile
+        if score >= 90:
             user_phrase_strength.correct += 1
             response_accuracy = True
-            profile.xp += 5
+            profile.xp += PLUS_5_XP
             profile.save()
         else:
             response_accuracy = False
-        user_phrase_strength.strength = ((
-            user_phrase_strength.views - (user_phrase_strength.views - user_phrase_strength.correct))
-                * 100) / user_phrase_strength.views
-        
-        # Save the user's phrase score
+
+        # Adjust and save the user's phrase score
+        user_phrase_strength.strength = (
+            (user_phrase_strength.views - 
+                (user_phrase_strength.views - user_phrase_strength.correct)
+            ) * 100) / user_phrase_strength.views
         user_phrase_strength.save()
 
         # Prepare data for feedback view
@@ -605,6 +598,7 @@ class PracticeView(LoginRequiredMixin, View):
         request.session['testing_view'] = 'frendj:practice'
         request.session['phrase_language'] = phrase.language
         request.session['feedback_html'] = feedback_html
+        request.session['xp_reward'] = PLUS_5_XP
         return redirect(success_url)
 
 
@@ -634,6 +628,7 @@ class ReviewView(LoginRequiredMixin, View):
                 del request.session['response_accuracy']
                 del request.session['phrase_language']
                 del request.session['feedback_html']
+                del request.session['xp_reward']
             except:
                 pass
 
@@ -689,31 +684,34 @@ class ReviewView(LoginRequiredMixin, View):
         errors = MAX_ERRORS
 
         # Find a translation that best matches the user's answer and evaluate score and errors
-        for translation in translations:
-            cleaned_test_phrase = unidecode(translation.translation.lower())
+        for tr in translations:
+            cleaned_test_phrase = unidecode(tr.translation.lower())
             curr_score, errors = eval_tranlation(cleaned_answer, cleaned_test_phrase)
             if curr_score > score:
                 score = curr_score
-                matched_translation = translation.translation
-        if not matched_translation: # Use a dummy translation if user's answer has no match
-            matched_translation = translations[0].translation
+                matched_translation = tr.translation
+                feedback_html = feedback(user_answer, matched_translation, errors, score)
 
-        # Generate feedback to display to user
-        feedback_html = feedback(user_answer, matched_translation, errors, score)
+        # Generate feedback to display to user using best match or dummy
+        try: 
+            feedback_html
+        except NameError:
+            feedback_html = feedback(user_answer, translations[0].translation, errors, score)
 
         # If evaluation passes mark, add points to user profile and raise user phrase strength
-        translation_len = len(matched_translation.replace(" ", "").translate(
-            str.maketrans("", "", string.punctuation)))
-        if ((translation_len < 10) and (score >= 85)) or score >= 90:
+        if score >= 90:
             user_phrase_strength.correct += 1
-            profile.xp += 5
+            profile.xp += PLUS_5_XP
             profile.save()
             response_accuracy = True
         else:
             response_accuracy = False
-        user_phrase_strength.strength = ((
-            user_phrase_strength.views - (user_phrase_strength.views - user_phrase_strength.correct)) 
-            * 100) / user_phrase_strength.views
+
+        # Adjust and save the user's phrase score
+        user_phrase_strength.strength = (
+            (user_phrase_strength.views - 
+                (user_phrase_strength.views - user_phrase_strength.correct)
+            ) * 100) / user_phrase_strength.views
         user_phrase_strength.save()
 
         # Prepare data for feedback view
@@ -725,6 +723,7 @@ class ReviewView(LoginRequiredMixin, View):
         request.session['testing_view'] = 'frendj:review'
         request.session['phrase_language'] = phrase.language
         request.session['feedback_html'] = feedback_html
+        request.session['xp_reward'] = PLUS_5_XP
         return redirect(success_url)
 
 
@@ -754,6 +753,7 @@ class AccentView(LoginRequiredMixin, View):
                 del request.session['response_accuracy']
                 del request.session['phrase_language']
                 del request.session['feedback_html']
+                del request.session['xp_reward']
             except:
                 pass
 
@@ -819,25 +819,26 @@ class AccentView(LoginRequiredMixin, View):
             score, errors = eval_tranlation(test_user_ans.lower(), test_translation.lower())
             if test_user_ans == test_translation:
                 user_phrase_strength.correct += 1
-                profile.xp += 9
+                profile.xp += PLUS_9_XP
                 profile.save()
                 response_accuracy = True
                 matched_translation = translation.translation
+                feedback_html = feedback(user_answer, matched_translation, errors, score)
                 break
             elif score > highest_score:
                 response_accuracy = False    
 
         # Generate feedback to display to user using best match or dummy
         try: 
-            matched_translation
-            feedback_html = feedback(user_answer, matched_translation, errors, score)
+            feedback_html
         except NameError:
             feedback_html = feedback(user_answer, translations[0].translation, errors, score)
       
-        # Update the user phrase strength score.
-        user_phrase_strength.strength = ((
-            user_phrase_strength.views - (user_phrase_strength.views - user_phrase_strength.correct))
-                * 100) / user_phrase_strength.views
+        # Adjust and save the user's phrase score
+        user_phrase_strength.strength = (
+            (user_phrase_strength.views - 
+                (user_phrase_strength.views - user_phrase_strength.correct)
+            ) * 100) / user_phrase_strength.views
         user_phrase_strength.save()
 
         # Prepare data for feedback view
@@ -849,6 +850,7 @@ class AccentView(LoginRequiredMixin, View):
         request.session['testing_view'] = 'frendj:accent'
         request.session['phrase_language'] = phrase.language
         request.session['feedback_html'] = feedback_html
+        request.session['xp_reward'] = PLUS_9_XP
         return redirect(success_url)
 
 
@@ -867,11 +869,12 @@ class FeedbackView(LoginRequiredMixin, View):
             module=module
         )
         
-        user_answer = request.session.get('user_answer') # remove ?
+        user_answer = request.session.get('user_answer')
         response_accuracy = request.session.get('response_accuracy')
         translations = Translation.objects.filter(phrase=phrase)
         testing_view = request.session.get('testing_view')
         feedback_html = request.session.get('feedback_html')
+        xp_reward = request.session.get('xp_reward')
 
         # Module progress - for LearnView only
         if testing_view == "frendj:learn":
@@ -906,7 +909,7 @@ class FeedbackView(LoginRequiredMixin, View):
 
         context = {
             'profile': profile,
-            'user_answer': user_answer, # Used as backup in csae of error with HTML
+            'user_answer': user_answer, # Used as backup in case of error with HTML
             'response_accuracy': response_accuracy,
             'phrase': phrase,
             'translations': translations,
@@ -915,7 +918,8 @@ class FeedbackView(LoginRequiredMixin, View):
             'module_id': module_id,
             'feedback_html': feedback_html,
             'module_progress': module_progress,
-            'module_name': module.name
+            'module_name': module.name,
+            'xp_reward': xp_reward
         }
         # Retrieve and pass on test count for the current exercise session
         return render(request, self.template_name, context)

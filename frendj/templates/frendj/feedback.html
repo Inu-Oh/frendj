@@ -11,7 +11,7 @@
                 <div class="container d-flex justify-content-between fs-4 pt-3">
                     <p>{{ result }} &nbsp; <span class="text-success fw-bold">
                         {% if response_accuracy == True %}
-                            +5 XP TODO - edit to show correct number of points
+                            +{{ xp_reward }} XP
                         {% endif %}
                     </span></p>
                 </div>
@@ -26,6 +26,7 @@
                             </small>
                             <p class="fs-4 lh-sm">{{ phrase }}</p>
                         </div>
+                        <div>&nbsp;</div>
                         <div> 
                             <small class="text-muted small">
                                 {% if translations|length == 1 %}
@@ -44,9 +45,9 @@
                     {% endif %}
                 </div>
 
-                <div class="container px-5 my-4">
+                <div class="container p-5 my-4">
                     <small class="text-muted small">Your answer</small>                     
-                    <a class="btn btn-sm btn-outline-primary border border-secondary fs-4 fw-bold w-100 text-start"
+                    <a class="btn btn-sm btn-outline-primary border border-secondary fs-4 fw-bold w-100 text-start p-0"
                         {% if testing_view == 'frendj:learn' %}
                             href="{% url testing_view module_id %}"
                         {% else %}
@@ -63,7 +64,6 @@
                             {% endif %}
                         {% endif %}</a>
                 </div>
-                Need to add submit on enter
             </main>
         </div>
 
