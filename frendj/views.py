@@ -60,7 +60,7 @@ def feedback(
     if translation_score >= 100 and error_count <= 0:
         return f'<span class="text-success">{user_answer}</span>' 
     # Full feedback string is red if too many errors
-    elif translation_score < 70 or error_count > 5: 
+    elif translation_score < 75 or error_count >= 4: 
         return f'<span class="text-danger">{user_answer}</span>' 
     # # Add feedback to the misspelled character
     # elif error_count == 1:
@@ -446,11 +446,11 @@ class LearnView(LoginRequiredMixin, View):
             if curr_score > score:
                 score = curr_score
                 matched_translation = tr.translation
+                feedback_html = feedback(user_answer, matched_translation, errors, score)
 
         # Generate feedback to display to user using best match or dummy
         try: 
-            matched_translation
-            feedback_html = feedback(user_answer, matched_translation, errors, score)
+            feedback_html
         except NameError:
             feedback_html = feedback(user_answer, translations[0].translation, errors, score)
 

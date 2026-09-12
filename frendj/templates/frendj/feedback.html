@@ -46,7 +46,7 @@
 
                 <div class="container px-5 my-4">
                     <small class="text-muted small">Your answer</small>                     
-                    <a class="btn btn-sm btn-outline-primary border border-secondary fs-5 fw-bold w-100 text-start"
+                    <a class="btn btn-sm btn-outline-primary border border-secondary fs-4 fw-bold w-100 text-start"
                         {% if testing_view == 'frendj:learn' %}
                             href="{% url testing_view module_id %}"
                         {% else %}
@@ -76,3 +76,14 @@
     </div>
 </div>
 {% endblock content %}
+
+
+{% block script %}
+<script>
+    document.addEventListener('keypress', function(event) {
+        if (event.key === 'Enter') {
+            document.getElementById('feedback-button').click();
+        }
+    });
+</script>
+{% endblock script %}
