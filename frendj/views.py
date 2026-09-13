@@ -22,6 +22,16 @@ INITIATE_COUNT, UNASSESSED_ACCURACY, UNASSESSED_SCORE, MAX_ERRORS = 1, False, -1
 PLUS_5_XP, PLUS_9_XP = 5, 9
 
 
+def clear_data_from_session(request, *previous_question_data):
+    if request.session.get(previous_question_data[0]):
+        for data_key in previous_question_data:
+            try:
+                del request.session[data_key]
+            except KeyError:
+                print(f'Exception Did not clear {data_key} from session.')
+                pass
+
+
 def eval_tranlation(user_answer: str, correct_translation: str) -> tuple[float, int]:
     """
     Evaluates the test score for a translation entered by the user
@@ -285,7 +295,6 @@ class GlossaryView(LoginRequiredMixin, ListView):
 
 class ModulesView(LoginRequiredMixin, ListView):
     """Displays all available and completed modules as button links to learning exercises"""
-
     template_name = 'frendj/modules.html'
 
     def get(self, request):
@@ -346,19 +355,12 @@ class LearnView(LoginRequiredMixin, View):
     template_name = 'frendj/learn.html'
 
     def get(self, request, pk):
-        # Delete session data for previous testing phrase if it exists
-        if request.session.get('phrase'):
-            try:
-                del request.session['phrase']
-                del request.session['user_phrase_strength_id']
-                del request.session['user_answer']
-                del request.session['response_accuracy']
-                del request.session['phrase_language']
-                del request.session['feedback_html']
-                del request.session['xp_reward']
-            except:
-                pass
+        # Clear session data for previously tested phrase if present
+        prev_question_keys = ['phrase', 'user_phrase_strength_id', 'user_answer',
+            'response_accuracy', 'phrase_language', 'feedback_html', 'xp_reward']
+        clear_data_from_session(request,*prev_question_keys)
 
+        # Get data for current phrase to test and context
         profile = Profile.objects.get(user=request.user)
         form = TestForm()
         module = Module.objects.get(id=pk)
@@ -421,15 +423,13 @@ class LearnView(LoginRequiredMixin, View):
         user_answer = html.escape(form.cleaned_data['answer'].strip())
         cleaned_answer = unidecode(user_answer.lower())
 
-        # Track the phrase as learned by the user and initiate view count.
+        # Track phrase as learned by the user. Initiate view, score and error counts
         user_phrase_strength.learned = True
         user_phrase_strength.views = INITIATE_COUNT
-
-        # Set variables to evaluate score and prepare feedback.
         score = UNASSESSED_SCORE
         errors = MAX_ERRORS
 
-        # Find a translation that best matches the user's answer and evaluate score and errors
+        # Find translation to match user's answer. Evaluate score and set feedback.       # Find a translation that best matches the user's answer. Evaluate score & errors
         for tr in translations:
             cleaned_test_phrase = unidecode(tr.translation.lower())
             curr_score, errors = eval_tranlation(cleaned_answer, cleaned_test_phrase)
@@ -437,14 +437,12 @@ class LearnView(LoginRequiredMixin, View):
                 score = curr_score
                 matched_translation = tr.translation
                 feedback_html = feedback(user_answer, matched_translation, errors, score)
-
-        # Generate feedback to display to user using best match or dummy
         try: 
             feedback_html
         except NameError:
             feedback_html = feedback(user_answer, translations[0].translation, errors, score)
 
-        # If evaluation passes mark, add points to user profile and raise user phrase strength
+        # If evaluation passes 90%, add points to user profile and raise user phrase strength
         if score >= 90:
             user_phrase_strength.correct += 1
             user_phrase_strength.strength = round(score)
@@ -453,12 +451,9 @@ class LearnView(LoginRequiredMixin, View):
             response_accuracy = True
         else:
             response_accuracy = False
-        
-        # Save the user's phrase score
         user_phrase_strength.save()
 
         # Prepare data for feedback view
-        success_url = reverse_lazy('frendj:feedback')
         request.session['phrase'] = user_phrase_strength.phrase.phrase
         request.session['user_answer'] = user_answer # Backup in csae of error with HTML
         request.session['response_accuracy'] = response_accuracy
@@ -467,6 +462,9 @@ class LearnView(LoginRequiredMixin, View):
         request.session['phrase_language'] = phrase.language
         request.session['feedback_html'] = feedback_html
         request.session['xp_reward'] = PLUS_5_XP
+
+        # Redirect to feedback if post succeeds
+        success_url = reverse_lazy('frendj:feedback')
         return redirect(success_url)
 
 
@@ -475,7 +473,6 @@ class PracticeView(LoginRequiredMixin, View):
     Test form. Prompts user to translate phrases one at a time. Selects user's
     weakest phrase each time. (Does not test accent and punctuation.)
     """
-
     template_name = 'frendj/practice.html'
 
     def get(self, request):
@@ -489,30 +486,18 @@ class PracticeView(LoginRequiredMixin, View):
         except:
             request.session['test_count'] = 0
 
-        # Delete session data for previous testing phrase if it exists
-        if request.session.get('phrase'):
-            try:
-                del request.session['phrase']
-                del request.session['user_answer']
-                del request.session['response_accuracy']
-                del request.session['phrase_language']
-                del request.session['feedback_html']
-                del request.session['xp_reward']
-            except:
-                pass
+        # Clear session data for previously tested phrase if present
+        prev_question_keys = ['phrase', 'user_answer', 'response_accuracy', 
+                                'phrase_language', 'feedback_html', 'xp_reward']
+        clear_data_from_session(request,*prev_question_keys)
 
+        # Select question or redirect if not abailable. Add context.
         profile = Profile.objects.get(user=request.user)
         form = TestForm()
         try:
             phrase_strength_set = UserPhraseStrength.objects.filter(learned=True, user=request.user)
             user_phrase_strength = phrase_strength_set.earliest('strength')
             phrase = Phrase.objects.get(id=user_phrase_strength.phrase_id)
-
-            # Debug info for server log TODO - remove later
-            phr_str = user_phrase_strength
-            print("\nBefore testing:", end=" ")
-            print(phr_str, "updated at:", phr_str.updated_at, "\nviews:", phr_str.views, end=" ")
-            print("correctly answered:", phr_str.correct, "strength:", phr_str.strength)
 
             context = {
                 'profile': profile,
@@ -550,15 +535,13 @@ class PracticeView(LoginRequiredMixin, View):
         user_answer = html.escape(form.cleaned_data['answer'].strip())
         cleaned_answer = unidecode(user_answer.lower())
 
-        # Track the phrase as learned by the user and initiate view count.
+        # Track phrase as learned by the user. Initiate view, score and error counts
         user_phrase_strength.learned = True
         user_phrase_strength.views = INITIATE_COUNT
-
-        # Set variables to evaluate score and prepare feedback.
         score = UNASSESSED_SCORE
         errors = MAX_ERRORS
 
-        # Find a translation that best matches the user's answer and evaluate score and errors
+        # Find translation to match user's answer. Evaluate score and set feedback.       # Find a translation that best matches the user's answer and evaluate score and errors
         for tr in translations:
             cleaned_test_phrase = unidecode(tr.translation.lower())
             curr_score, errors = eval_tranlation(cleaned_answer, cleaned_test_phrase)
@@ -566,8 +549,6 @@ class PracticeView(LoginRequiredMixin, View):
                 score = curr_score
                 matched_translation = tr.translation
                 feedback_html = feedback(user_answer, matched_translation, errors, score)
-
-        # Generate feedback to display to user using best match or dummy
         try: 
             feedback_html
         except NameError:
@@ -582,7 +563,7 @@ class PracticeView(LoginRequiredMixin, View):
         else:
             response_accuracy = False
 
-        # Adjust and save the user's phrase score
+        # Adjust and save the user's phrase strength
         user_phrase_strength.strength = (
             (user_phrase_strength.views - 
                 (user_phrase_strength.views - user_phrase_strength.correct)
@@ -590,7 +571,6 @@ class PracticeView(LoginRequiredMixin, View):
         user_phrase_strength.save()
 
         # Prepare data for feedback view
-        success_url = reverse_lazy('frendj:feedback')
         request.session['phrase'] = user_phrase_strength.phrase.phrase
         request.session['module_id'] = module.id
         request.session['user_answer'] = user_answer # Used as backup in case of error with HTML
@@ -599,6 +579,9 @@ class PracticeView(LoginRequiredMixin, View):
         request.session['phrase_language'] = phrase.language
         request.session['feedback_html'] = feedback_html
         request.session['xp_reward'] = PLUS_5_XP
+
+        # Redirect to feedback if post succeeds
+        success_url = reverse_lazy('frendj:feedback')
         return redirect(success_url)
 
 
@@ -620,18 +603,12 @@ class ReviewView(LoginRequiredMixin, View):
         except:
             request.session['test_count'] = 0
             
-        # Delete session data for previous testing phrase if it exists
-        if request.session.get('phrase'):
-            try:
-                del request.session['phrase']
-                del request.session['user_answer']
-                del request.session['response_accuracy']
-                del request.session['phrase_language']
-                del request.session['feedback_html']
-                del request.session['xp_reward']
-            except:
-                pass
+        # Clear session data for previously tested phrase if present
+        prev_question_keys = ['phrase', 'user_answer', 'response_accuracy', 
+                                'phrase_language', 'feedback_html', 'xp_reward']
+        clear_data_from_session(request,*prev_question_keys)
 
+        # Select question or redirect if not abailable. Add context.
         profile = Profile.objects.get(user=request.user)
         form = TestForm()
         try:
@@ -675,15 +652,13 @@ class ReviewView(LoginRequiredMixin, View):
         user_answer = html.escape(form.cleaned_data['answer'].strip())
         cleaned_answer = unidecode(user_answer.lower())
 
-        # Track the phrase as learned by the user and initiate view count.
+        # Track phrase as learned by the user. Initiate view, score and error counts
         user_phrase_strength.learned = True
         user_phrase_strength.views = INITIATE_COUNT
-
-        # Set variables to evaluate score and prepare feedback.
         score = UNASSESSED_SCORE
         errors = MAX_ERRORS
 
-        # Find a translation that best matches the user's answer and evaluate score and errors
+        # Find translation to match user's answer. Evaluate score and set feedback.
         for tr in translations:
             cleaned_test_phrase = unidecode(tr.translation.lower())
             curr_score, errors = eval_tranlation(cleaned_answer, cleaned_test_phrase)
@@ -691,8 +666,6 @@ class ReviewView(LoginRequiredMixin, View):
                 score = curr_score
                 matched_translation = tr.translation
                 feedback_html = feedback(user_answer, matched_translation, errors, score)
-
-        # Generate feedback to display to user using best match or dummy
         try: 
             feedback_html
         except NameError:
@@ -707,7 +680,7 @@ class ReviewView(LoginRequiredMixin, View):
         else:
             response_accuracy = False
 
-        # Adjust and save the user's phrase score
+        # Adjust and save the user's phrase strength
         user_phrase_strength.strength = (
             (user_phrase_strength.views - 
                 (user_phrase_strength.views - user_phrase_strength.correct)
@@ -715,7 +688,6 @@ class ReviewView(LoginRequiredMixin, View):
         user_phrase_strength.save()
 
         # Prepare data for feedback view
-        success_url = reverse_lazy('frendj:feedback')
         request.session['phrase'] = user_phrase_strength.phrase.phrase
         request.session['module_id'] = module.id
         request.session['user_answer'] = user_answer # Used as backup in csae of error with HTML
@@ -724,6 +696,9 @@ class ReviewView(LoginRequiredMixin, View):
         request.session['phrase_language'] = phrase.language
         request.session['feedback_html'] = feedback_html
         request.session['xp_reward'] = PLUS_5_XP
+
+        # Redirect to feedback if post succeeds
+        success_url = reverse_lazy('frendj:feedback')
         return redirect(success_url)
 
 
@@ -744,23 +719,16 @@ class AccentView(LoginRequiredMixin, View):
                 return redirect(finished_exercise_url)
         except:
             request.session['test_count'] = 0
-        # Delete session data for previous testing phrase if it exists
-        if request.session.get('phrase'):
-            try:
-                del request.session['phrase']
-                del request.session['user_phrase_strength_id']
-                del request.session['user_answer']
-                del request.session['response_accuracy']
-                del request.session['phrase_language']
-                del request.session['feedback_html']
-                del request.session['xp_reward']
-            except:
-                pass
+
+        # Clear session data for previously tested phrase if present
+        prev_question_keys = ['phrase', 'user_phrase_strength_id', 'user_answer',
+            'response_accuracy', 'phrase_language', 'feedback_html', 'xp_reward']
+        clear_data_from_session(request,*prev_question_keys)
 
         profile = Profile.objects.get(user=request.user)
         form = TestForm()
 
-        # Select random unlearned phrase for testing and get its translationstry:
+        # Select question or redirect if not abailable. Add context.
         try: 
             phrase_strength_set = UserPhraseStrength.objects.filter(learned=True, user=request.user)
             user_phrase_strength = choice(phrase_strength_set)
@@ -777,7 +745,6 @@ class AccentView(LoginRequiredMixin, View):
             }
             # Increment test count for each phrase test before passing to session
             request.session['test_count'] += 1
-            
 
             return render(request, self.template_name, context)
         except:
@@ -807,13 +774,11 @@ class AccentView(LoginRequiredMixin, View):
         user_answer = html.escape(form.cleaned_data['answer'].strip())
         test_user_ans = user_answer.translate(str.maketrans("", "", string.punctuation))
 
-        # Increment user view of current phrase
+        # Increment user view of current phrase. Set variable to support feedback.
         user_phrase_strength.views += 1
-
-        # Set variable to help choose best translation for feedback
         highest_score = UNASSESSED_SCORE
         
-        # Find a translation that exactly matches the user's answer. If yes, add points. Generate feedback.
+        # Find translation that exactly matches answer. Evaluate score, add points and set feedback.
         for translation in translations:
             test_translation = translation.translation.translate(str.maketrans("", "", string.punctuation))
             score, errors = eval_tranlation(test_user_ans.lower(), test_translation.lower())
@@ -825,10 +790,9 @@ class AccentView(LoginRequiredMixin, View):
                 matched_translation = translation.translation
                 feedback_html = feedback(user_answer, matched_translation, errors, score)
                 break
+            # TODO - review the elif block / Is it still needed.
             elif score > highest_score:
                 response_accuracy = False    
-
-        # Generate feedback to display to user using best match or dummy
         try: 
             feedback_html
         except NameError:
@@ -842,7 +806,6 @@ class AccentView(LoginRequiredMixin, View):
         user_phrase_strength.save()
 
         # Prepare data for feedback view
-        success_url = reverse_lazy('frendj:feedback')
         request.session['phrase'] = user_phrase_strength.phrase.phrase
         request.session['user_answer'] = user_answer  # Used as backup in csae of error with HTML
         request.session['response_accuracy'] = response_accuracy
@@ -851,6 +814,9 @@ class AccentView(LoginRequiredMixin, View):
         request.session['phrase_language'] = phrase.language
         request.session['feedback_html'] = feedback_html
         request.session['xp_reward'] = PLUS_9_XP
+
+        # Redirect to feedback if post succeeds
+        success_url = reverse_lazy('frendj:feedback')
         return redirect(success_url)
 
 
