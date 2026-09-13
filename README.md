@@ -1,8 +1,8 @@
 # frendj - French / English language learning web app
 
-[!WARNING] - This app is currently undergoing a major overhaul
+>  [!WARNING] This app is undergoing a major overhaul
 
-## Current undergoing changes
+## Current changes
 - Update to Django 6.1 from Django 4.2 (see tommy repo)
 - Refactor main functions and classes
 - Implement classes through inheritance
@@ -22,8 +22,6 @@ Phrases and translations can be loaded from a CSV file and edited by admin / sta
 ### PosgreSQL
 For development, using psycop2-binary installation. For **production** switch to psycopg2: https://www.psycopg.org/docs/install.html.
 
-### Login page
-- under construction
 ### Home page
 - under construction
 ### Learning Hub showing unlearned and learned module links to lessons
@@ -34,6 +32,8 @@ Practice, Review and Extreme quiz views use different algorithms to select phras
 ### Quiz feedback page
 - under construction
 ### Glossary page with search results 
+- under construction
+### Login page
 - under construction
 ## Staff / Admin Home Page
 - under construction
