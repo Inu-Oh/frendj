@@ -1,37 +1,45 @@
 {% load humanize %}
 
 
-<main class="main card bg-light p-5">
-    <h3 class="text-secondary fs-4">
-        Translate
-        <span class="badge bg-secondary">
-            {% if phrase.language == "French" %}
-                French to English
-            {% else %}
-                English to French
-            {% endif %}
-        </span>
-    </h3>
+<main class="main container">
+<div class="d-flex flex-column gap-4">
 
-    {% if not phrase %}
-    <p class="fs-3 lh-sm py-3">Learn phrases before doing practice</p>
-    {% else %}
-        <h1 class="fs-2 py-5 ms-3 text-center">{{ phrase }}</h1>
-    {% endif %}
+    <div class="bg-light p-4 rounded-3 fs-3 border">
+        <h3 class="text-secondary fs-4">
+            <i class="fa-regular fa-comment"></i> &nbsp; Translate
+            <span class="badge bg-secondary">
+                {% if phrase.language == "French" %}
+                    French to English
+                {% else %}
+                    English to French
+                {% endif %}
+            </span>
+        </h3>
+    </div>
 
-    {% if message %}
-        <p class="text-danger fs-5">
-            <strong>{{ message }}<strong>
-        </p>
-    {% endif %}
-
-    {% load crispy_forms_tags %}
-    <form action="" method="post" enctype="multipart/form-data"
-        class="pt-4">
-        {% if form.errors %}
-            <p>There was an error. Please try again.</p>
+    <div class="bg-light p-4 rounded-3 border">
+        {% if message %}
+            <p class="text-danger fs-5"><strong>{{ message }}<strong></p>
         {% endif %}
-        {% csrf_token %}
-        {{ form|crispy }}
-    </form>
+
+        {% if not phrase %}
+            <p class="fs-3 py-5">Learn phrases before doing practice</p>
+        {% else %}
+            <h1 class="fs-2 py-5 ms-3 text-center">{{ phrase }}</h1>
+        {% endif %}
+    </div>
+
+    <div class="bg-light p-4 rounded-3 m-1 border">
+        <small class="text-muted small">Your answer</small>   
+        {% load crispy_forms_tags %}
+        <form action="" method="post" enctype="multipart/form-data" class="">
+            {% if form.errors %}
+                <p>There was an error. Please try again.</p>
+            {% endif %}
+            {% csrf_token %}
+            {{ form|crispy }}
+        </form>
+    </div>
+
+</div>
 </main>

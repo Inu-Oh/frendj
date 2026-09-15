@@ -5,74 +5,80 @@
 {% block content %}
 <div class="container">
     <div class="row">
-        <div class="col-8">
-            <main class="main bg-light card">
+    <div class="col-8">
+        <main class="main container">
+        <div class="d-flex flex-column gap-4">
 
-                <div class="container d-flex justify-content-between fs-4 pt-3">
-                    <p>{{ result }} &nbsp; <span class="text-success fw-bold">
+            <div class="bg-light p-4 rounded-3 border">
+                <h3 class="text-secondary fs-4">
+                    <i class="fa-regular fa-comment"></i> &nbsp; {{ result }} &nbsp;
+                    <span class="text-success fw-bold">
                         {% if response_accuracy == True %}
                             +{{ xp_reward }} XP
                         {% endif %}
-                    </span></p>
-                </div>
-
-                <div class="container d-flex justify-content-around pt-3">
-                    {% if not phrase %}
-                        Error with feedback on testing phrase
-                    {% else %}
-                        <div>   
-                            <small class="text-muted small">
-                                Test phrase ({{ phrase.language }})
-                            </small>
-                            <p class="fs-4 lh-sm">{{ phrase }}</p>
-                        </div>
-                        <div>&nbsp;</div>
-                        <div> 
-                            <small class="text-muted small">
-                                {% if translations|length == 1 %}
-                                    Translation
-                                {% else %}
-                                    Translations
-                                {% endif %} 
-                                ({{ translations.0.language }})
-                            </small>
-                            {% for translation in translations %}
-                                <p class="fs-4 lh-sm mb-1">
-                                    {{ translation.translation }}&nbsp;
-                                </p>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                </div>
-
-                <div class="container p-5 my-4">
-                    <small class="text-muted small">Your answer</small>                     
-                    <a class="btn btn-sm btn-outline-primary border border-secondary fs-4 fw-bold w-100 text-start py-2"
-                        {% if testing_view == 'frendj:learn' %}
-                            href="{% url testing_view module_id %}"
-                        {% else %}
-                            href="{% url testing_view %}" 
-                        {% endif %}
-                        id="feedback-button" autofocus>&nbsp;
-                        {% if feedback_html %}
-                            {{ feedback_html|safe }}
-                        {% else %}
-                            {% if response_accuracy == True %}
-                                <span class="text-success fw-bold">{{ user_answer }}
-                            {% else %}
-                                <span class="text-danger fw-bold">{{ user_answer }}
-                            {% endif %}
-                        {% endif %}</a>
-                </div>
-            </main>
-        </div>
-
-
-        {% if profile %}
-            <div class="col-4">
-                {% include 'info_pane.html' %}
+                    </span>
+                </h3>
             </div>
-        {% endif %}
+
+            <div class="bg-light p-4 rounded-3 border">
+                {% if not phrase %}
+                    Error with feedback on testing phrase
+                {% else %}
+                    <div>   
+                        <small class="text-muted small">
+                            Test phrase ({{ phrase.language }})
+                        </small>
+                        <p class="fs-4 lh-sm">{{ phrase }}</p>
+                    </div>
+                    <div>&nbsp;</div>
+                    <div> 
+                        <small class="text-muted small">
+                            {% if translations|length == 1 %}
+                                Translation
+                            {% else %}
+                                Translations
+                            {% endif %} 
+                            ({{ translations.0.language }})
+                        </small>
+                        {% for translation in translations %}
+                            <p class="fs-4 lh-sm mb-1">
+                                {{ translation.translation }}&nbsp;
+                            </p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="bg-light p-4 rounded-3 border">
+                <small class="text-muted small">Your answer</small>                     
+                <a class="btn btn-sm btn-outline-primary border border-secondary fs-4 fw-bold w-100 text-start py-2 mb-3"
+                    {% if testing_view == 'frendj:learn' %}
+                        href="{% url testing_view module_id %}"
+                    {% else %}
+                        href="{% url testing_view %}" 
+                    {% endif %}
+                    id="feedback-button" autofocus>&nbsp;
+                    {% if feedback_html %}
+                        {{ feedback_html|safe }}
+                    {% else %}
+                        {% if response_accuracy == True %}
+                            <span class="text-success fw-bold">{{ user_answer }}
+                        {% else %}
+                            <span class="text-danger fw-bold">{{ user_answer }}
+                        {% endif %}
+                    {% endif %}</a>
+            </div>
+
+        <div class="d-flex flex-column gap-3">
+        </main>
+    </div>
+
+    {% if profile %}
+        <div class="col-4">
+            {% include 'info_pane.html' %}
+        </div>
+    {% endif %}
+
     </div>
 </div>
 {% endblock content %}
