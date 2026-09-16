@@ -3,6 +3,7 @@
 
 <aside id="info-pane" class="p-2">
     <div class="container py-1">
+
         <div class="fs-3 fw-bolder py-2">
             <i class="fa-regular fa-user-circle"></i> 
             &nbsp; {{ profile.name }} 
@@ -19,8 +20,10 @@
                 <div class="progress-bar progress-bar-striped bg-success fw-bold"
                     role="progressbar" style="width: {{ progress }}%;"
                     aria-valuenow="{{ progress }}" aria-valuemin="0" aria-valuemax="100">
-                    {{ progress }}%</div>
+                        {{ progress }}%
+                </div>
             </div>
         </div>
+        
     </div>
 </aside>

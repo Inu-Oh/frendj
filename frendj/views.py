@@ -704,7 +704,7 @@ class ReviewView(LoginRequiredMixin, View):
 
 class AccentView(LoginRequiredMixin, View):
     """
-    Difficult test form. Prompts user to translate phrases one at a time. Selects
+    Rigorous test form. Prompts user to translate phrases one at a time. Selects
     phrase randomly. Tests accent and punctuation.
     """
     template_name = 'frendj/accent.html'

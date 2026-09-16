@@ -51,7 +51,7 @@
 
             <div class="bg-light p-4 rounded-3 border">
                 <small class="text-muted small">Your answer</small>                     
-                <a class="btn btn-sm btn-outline-primary border border-secondary fs-4 fw-bold w-100 text-start py-2 mb-3"
+                <a class="btn btn-sm btn-outline-primary border border-secondary rounded-2 fs-4 fw-bold w-100 text-start py-2 mb-3"
                     {% if testing_view == 'frendj:learn' %}
                         href="{% url testing_view module_id %}"
                     {% else %}
@@ -86,6 +86,13 @@
 
 {% block script %}
 <script>
+    /*
+        $(document).on('keydown', function(e) {
+        if (e.key === 'Enter') {
+            $('#feedback-button').click();
+        }
+    });
+    */
     document.addEventListener('keypress', function(event) {
         if (event.key === 'Enter') {
             document.getElementById('feedback-button').click();
