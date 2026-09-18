@@ -27,10 +27,10 @@
 
                         {% for open_module in open_modules %}{% if open_module == module %}
                             <a href="{% url 'frendj:learn' module.id %}" 
-                                class="list-group-item list-group-item-action">
+                                class="list-group-item list-group-item-action link-style pb-3">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h5 class="fs-5">{{ module.name }}</h5>
-                                    <small>### questions</small>
+                                    <small>### phrases</small>
                                 </div>
                                 <small class="secondary">
                                     &nbsp; &raquo; &nbsp; TODO - add module description
@@ -39,10 +39,10 @@
                         {% endif %}{% endfor %}
 
                         {% for closed_module in closed_modules %}{% if closed_module == module %}
-                            <li class="list-group-item disabled" aria-disabled="true">
+                            <li class="list-group-item text-muted pb-3">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h5 class="fs-5">{{ module.name }}</h5>
-                                    <small>### questions</small>
+                                    <small>### phrases</small>
                                 </div>
                                 <small>
                                     &nbsp; &raquo; &nbsp; TODO - add description and complete message
