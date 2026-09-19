@@ -98,23 +98,10 @@ class Home(LoginRequiredMixin, TemplateView):
             return redirect(create_profile_url)
         
         # Delete session data from exercises if it exists
-        try: # data from practice, review and accent views
-            del request.session['test_count']
-        except:
-            pass
-        try: # data from learn view
-            del request.session['module_id']
-        except:
-            pass
-        if request.session.get('phrase'):
-            try:
-                del request.session['phrase']
-                del request.session['user_answer']
-                del request.session['response_accuracy']
-                del request.session['phrase_language']
-                del request.session['feedback_html']
-            except:
-                pass
+        session_data_keys = ['phrase', 'user_phrase_strength_id', 'user_answer',
+            'response_accuracy', 'phrase_language', 'feedback_html', 'xp_reward',
+            'test_count', 'module_id']
+        clear_data_from_session(request,*session_data_keys)
         
         # Get user phrase strength data for progress
         user_phrase_strength_set = UserPhraseStrength.objects.filter(user=request.user)

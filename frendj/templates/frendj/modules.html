@@ -30,11 +30,10 @@
                                 class="list-group-item list-group-item-action link-style pb-3">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h5 class="fs-5">{{ module.name }}</h5>
-                                    <small>### phrases</small>
+                                    <small>
+                                        {{ module.phrases_in_module.count }} phrases
+                                    </small>
                                 </div>
-                                <small class="secondary">
-                                    &nbsp; &raquo; &nbsp; TODO - add module description
-                                </small>
                             </a>
                         {% endif %}{% endfor %}
 
@@ -42,11 +41,10 @@
                             <li class="list-group-item text-muted pb-3">
                                 <div class="d-flex w-100 justify-content-between">
                                     <h5 class="fs-5">{{ module.name }}</h5>
-                                    <small>### phrases</small>
+                                    <small>
+                                        {{ module.phrases_in_module.count }} phrases
+                                    </small>
                                 </div>
-                                <small>
-                                    &nbsp; &raquo; &nbsp; TODO - add description and complete message
-                                </small>
                             </li>
                         {% endif %}{% endfor %}
                             
