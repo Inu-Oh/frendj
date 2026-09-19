@@ -21,35 +21,29 @@
 
                 <div id="module-list" class="card-body bg-white">
                     <div class="card-text">
-                        <ul class="list-group-flush">
-                        
-                        {% for module in modules %}
+
+                    {% for module in modules %}
 
                         {% for open_module in open_modules %}{% if open_module == module %}
                             <a href="{% url 'frendj:learn' module.id %}" 
-                                class="list-group-item list-group-item-action link-style pb-3">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h5 class="fs-5">{{ module.name }}</h5>
-                                    <small>
-                                        {{ module.phrases_in_module.count }} phrases
-                                    </small>
-                                </div>
+                                class="btn btn-outline-dark m-2">
+                                {{ module.name|title }} &nbsp;
+                                <small class="badge rounded-pill bg-primary">
+                                    {{ module.phrases_in_module.count }}
+                                </small>
                             </a>
                         {% endif %}{% endfor %}
 
                         {% for closed_module in closed_modules %}{% if closed_module == module %}
-                            <li class="list-group-item text-muted pb-3">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h5 class="fs-5">{{ module.name }}</h5>
-                                    <small>
-                                        {{ module.phrases_in_module.count }} phrases
-                                    </small>
-                                </div>
-                            </li>
+                            <button class="btn btn-light m-2 disabled" aria-disabled="true">
+                                {{ module.name|title }} &nbsp;
+                                <small class="badge rounded-pill bg-secondary">
+                                    {{ module.phrases_in_module.count }}
+                                </small>
+                            </button>
                         {% endif %}{% endfor %}
                             
-                        {% endfor %}
-                        </ul>
+                    {% endfor %}
                     </div>
                 </div>
 

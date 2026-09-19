@@ -296,7 +296,7 @@ class ModulesView(LoginRequiredMixin, ListView):
         else:
             unlearned_phrase_count, learned_phrase_count = 1, 0
         progress = int((learned_phrase_count * 100) / (learned_phrase_count + unlearned_phrase_count))
-        modules = Module.objects.all()
+        modules = Module.objects.all().order_by('name')
 
         if msg := request.session.get('module_complete_msg'):
             module_complete_msg = msg
