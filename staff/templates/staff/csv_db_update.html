@@ -29,7 +29,9 @@
                         <div class="w-100 py-3"><span class="text-danger fw-bolder">
                             The following phrases will be edited in the database:</span>
                         {% for phrase in changed_phrases %}
-                            <p class="my-2">{{ forloop.counter }}. {{ phrase }}</p>
+                            <p class="my-2">
+                                {{ forloop.counter }}. {{ phrase }}
+                            </p>
                         {% endfor %}
                         </div>
                     {% endif %}
@@ -37,7 +39,8 @@
                         <div class="w-100 py-3"><span class="text-danger fw-bolder">
                             The following phrases will be added to the database:</span>
                         {% for phrase in added_phrases %}
-                            <p class="my-2">{{ forloop.counter }}. {{ phrase }}</p>
+                            <p class="my-2">
+                                {{ forloop.counter }}. {{ phrase.0 }} ({{ phrase.1 }})</p>
                         {% endfor %}
                         </div>
                     {% endif %}

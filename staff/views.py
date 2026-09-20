@@ -449,19 +449,21 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
             }
             return render(request, self.template_name, context)
 
-        # Check that new phrases are unique
-        phrase_list, duplicates, row = [phrase.phrase for phrase in phrases], [], 1
+        # Check that new phrases are unique in its language list
+        phrase_list = [phrase.phrase+phrase.language for phrase in phrases]
+        duplicates, row = [], 1 # first row is heading
         for item in data_list:
-            if not item["phrase_id"]:
-                if phrase := item["phrase"] in phrase_list:
-                    duplicates.append({'phrase': phrase, 'row': row})
-                else:
-                    phrase_list.append(phrase)
             row += 1
+            if not item['phrase_id']:
+                if item['phrase']+item['phrase_lang'] in phrase_list:
+                    duplicates.append({'phrase': item['phrase'], 'row': row})
+                else:
+                    phrase_list.append(item['phrase'])
+
         if duplicates:
             message += "The CSV file includes phrases that are duplicates: "
-            for phrase, row in duplicates:
-                message += f'"{phrase}" at row {row}, '
+            for duplicate in duplicates:
+                message += f'"{duplicate['phrase']}" at row {duplicate['row']}, '
             message += "\b\b. Make sure there are no duplicates before testing again."
             context = {
                 'profile': profile,
@@ -586,7 +588,7 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
 
         # Compare CSV data with database content and get stats
         current_phrase_count = phrases.count()
-        total, changed, new, csv_phrase_ids = 0, set(), set(), []
+        total, changed, new, csv_phrase_ids = 0, [], [], []
 
         # Count all the items in the data list
         for item in data_list:
@@ -594,19 +596,16 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
 
             # Count new items as those without a phrase ID
             if not item["phrase_id"]:
-                new.add(item["phrase"])
-            # Or add the phrase ID to track list of phrases already in the database
-            # Then get phrase data in database and compare with update CSV data
-            # and keep track of changes.
+                new.append((item["phrase"], item['phrase_lang']))
             else:
                 csv_phrase_ids.append(int(item["phrase_id"]))
                 phrase = phrases.get(id=item["phrase_id"])
                 if phrase.language != item["phrase_lang"]:
-                    changed.add(f"{phrase} (change language): {phrase.language} -> {item['phrase_lang']}")
+                    changed.append(f"{phrase} (change language): {phrase.language} -> {item['phrase_lang']}")
                 elif phrase.phrase != item["phrase"]:
-                    changed.add(f"{phrase} (change phrase) -> {item['phrase']}")
+                    changed.append(f"{phrase} (change phrase) -> {item['phrase']}")
                 elif phrase.module.name != item["module_name"]:
-                    changed.add(f"{phrase} (change module): {phrase.module.name} -> {item['module_name']}")
+                    changed.append(f"{phrase} (change module): {phrase.module.name} -> {item['module_name']}")
                 else:
                     old_translations, new_translations = set(), set(item["translations"])
                     phrase_translations = translations.filter(phrase=phrase)
@@ -620,7 +619,7 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
         for phrase in phrases:
             if phrase.id not in csv_phrase_ids:
                 unchanged += 1
-
+        print(new)
         context = {
             'profile': profile,
             'submit_form': submit_form,
