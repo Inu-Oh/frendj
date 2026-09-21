@@ -449,7 +449,7 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
             }
             return render(request, self.template_name, context)
 
-        # Check that new phrases are unique in its language list
+        # Check that new phrase is unique in its language list
         phrase_list = [phrase.phrase+phrase.language for phrase in phrases]
         duplicates, row = [], 1 # first row is heading
         for item in data_list:
@@ -457,10 +457,8 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
             if not item['phrase_id']:
                 if item['phrase']+item['phrase_lang'] in phrase_list:
                     duplicates.append({'phrase': item['phrase'], 'row': row})
-                else:
-                    phrase_list.append(item['phrase'])
-
-        if duplicates:
+                phrase_list.append(item['phrase'])
+        if len(duplicates):
             message += "The CSV file includes phrases that are duplicates: "
             for duplicate in duplicates:
                 message += f'"{duplicate['phrase']}" at row {duplicate['row']}, '
@@ -586,6 +584,70 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
             }
             return render(request, self.template_name, context)
 
+        # TODO - remove print statements in checks after testing
+        # Run all checks to test data and redirect to test page if there are any errors
+        error = False
+        phrases = Phrase.objects.all()
+        phrase_list = [phrase.phrase+phrase.language for phrase in phrases]
+        for item in data_list:
+            # Check that phrase id is entered correctly for updates
+            if phrase_id := item["phrase_id"]:
+                try:
+                    phrase_id = int(phrase_id)
+                except ValueError:
+                    print("Phrase id is not an int")
+                    error = True
+                    break
+                try:
+                    if not phrases.get(id=phrase_id):
+                        print("Phrase ID is wrong")
+                        error = True
+                        break
+                except:
+                    print("Phrase ID is wrong")
+                    error = True
+                    break
+            # Verify that module name is entered for each phrase and not longer than 24 chars
+            if ( not item["module_name"] or (len(item["module_name"]) > 24) ):
+                print("Module name error")
+                error = True
+                break
+            # Check that phrases ware entered and only contain alphabetic characters
+            if not item["phrase"] or match(r'[a-zA-Z ]$', item["phrase"]):
+                print("Phrase blank or misformatted")
+                error = True
+                break
+            # Check that new phrase is unique in its language list
+            if not item['phrase_id']:
+                if item['phrase']+item['phrase_lang'] in phrase_list:
+                    print("Duplicate phrase")
+                    error = True
+                    break
+            # Verify either English or French for language options
+            if item["phrase_lang"] not in ["French", "English"]:
+                print("Language is not French or English")
+                error = True
+                break
+            # Verify that all row have well formatted translations that include only alphabetic characters
+            if item_translations := item["translations"]:
+                if type(item_translations) is not list:
+                    print("Translations are not in a list format")
+                    error = True
+                    break
+                for translation in item_translations:
+                    if not translation or match(r'[a-zA-Z ]$', translation):
+                        print("A translation is blank or not alphabetic")
+                        error = True
+                        break
+            else: # if translation list is empty
+                print("Translation list is empty")
+                error = True
+                break
+        if error:
+            failure_url = reverse_lazy('staff:csv_db_test') 
+            return redirect(failure_url)
+
+
         # Compare CSV data with database content and get stats
         current_phrase_count = phrases.count()
         total, changed, new, csv_phrase_ids = 0, [], [], []
@@ -619,7 +681,7 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
         for phrase in phrases:
             if phrase.id not in csv_phrase_ids:
                 unchanged += 1
-        print(new)
+
         context = {
             'profile': profile,
             'submit_form': submit_form,
