@@ -90,9 +90,7 @@
 <script>
 $(document).ready(function() {
     $(document).on('keydown', function(e) {
-        console.log('Key pressed:', e.key, 'Target:', e.target.tagName);
         if (e.key === 'Enter') {
-            console.log('Enter detected!');
             // $('#feedback-button').click(); // firgure out why this jQuery not working
             document.getElementById('feedback-button').click();
         }
