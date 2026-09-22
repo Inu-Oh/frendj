@@ -113,6 +113,10 @@
         </div>
     {% endif %}
 <script>
+{% comment %} (function($){
+    // your code, use `$` as normal
+})(django.jQuery); {% endcomment %}
+
     document.addEventListener('DOMContentLoaded', function() {
 
         // Format action URL with id based on dropdown selection when button is clicked
