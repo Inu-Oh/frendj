@@ -42,7 +42,7 @@
         <h5 class="fs-5">Add translations to phrases in {{ module.name}} </h5>
         <p class="text-muted">Chooose a phrase</p>
         {% for phrase in phrases %}
-        <a href="{% url 'staff:add_translation' module.id phrase.id %}"
+        <a href="{% url 'staff:add_translation' phrase.id %}"
             class="btn btn-outline-dark m-1">{{ phrase.phrase }}</a>
         {% endfor %}
         {% endif %}

@@ -10,7 +10,7 @@ urlpatterns = [
     path('add_module', views.CreateModuleView.as_view(), name='add_module'),
     path('module/<int:pk>/add_phrase',
          views.CreatePhraseView.as_view(), name='add_phrase'),
-    path('module/<int:pk1>/phrase/<int:pk2>/add_translation',
+    path('phrase/<int:pk>/add_translation',
          views.CreateTranslationView.as_view(), name='add_translation'),
 
     # Edit modules, phrases and translations

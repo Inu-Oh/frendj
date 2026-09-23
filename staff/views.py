@@ -129,35 +129,35 @@ class CreateTranslationView(PermissionRequiredMixin, CreateView):
     permission_required = 'frendj.add_translation'
     template_name = 'staff/add_translation.html'
     
-    def get(self, request, pk1, pk2):
+    def get(self, request, pk):
         if not request.user.is_staff:
             non_staff_url = 'frendj:home'
             return redirect(non_staff_url)
         
-        module = Module.objects.get(id=pk1)
+        phrase = Phrase.objects.get(id=pk)
+        module = phrase.module
         phrase_set = Phrase.objects.filter(module=module)
-        current_phrase = Phrase.objects.get(id=pk2)
-        translations = Translation.objects.filter(phrase=current_phrase)
+        translations = Translation.objects.filter(phrase=phrase)
         form = CreateTranslationForm()
         context = {
             'form': form,
             'module': module,
-            'current_phrase': current_phrase,
+            'current_phrase': phrase,
             'phrase_set': phrase_set,
             'translations': translations
         }
         return render(request, self.template_name, context)
     
-    def post(self, request, pk1, pk2):
+    def post(self, request, pk):
         if not request.user.is_staff:
             non_staff_url = 'frendj:home'
             return redirect(non_staff_url)
         
         form = CreateTranslationForm(request.POST)
-        phrase = Phrase.objects.get(id=pk2)
+        phrase = Phrase.objects.get(id=pk)
 
         if not form.is_valid():
-            module = Module.objects.get(id=pk1)
+            module = phrase.module
             phrase_set = Phrase.objects.filter(module=module)
             translations = Translation.objects.filter(phrase=phrase)
             
@@ -174,9 +174,7 @@ class CreateTranslationView(PermissionRequiredMixin, CreateView):
         translation.phrase = phrase
         translation.save()
 
-        success_url = reverse_lazy(
-            'staff:add_translation', kwargs={'pk1': pk1, 'pk2': pk2}
-        )
+        success_url = reverse_lazy('staff:add_translation', kwargs={'pk': pk})
         return redirect(success_url)
 
 

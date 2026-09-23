@@ -71,7 +71,7 @@
                 <select id="add_translation" class="form-control" required>
                     <option disabled selected value>Select a phrase to add translations</option>
                     {% if phrases %}{% for phrase in phrases %}
-                    <option value="[{{ phrase.module.id }}, {{ phrase.id }}]">
+                    <option value="{{ phrase.id }}">
                         {{ phrase.phrase }} ({{ phrase.language }})
                     </option>
                     {% endfor %}{% endif %}
@@ -86,7 +86,9 @@
                 <select id="edit_translation" class="form-control" required>
                     <option vdisabled selected value>Select a translation to edit</option>
                     {% if translations %}{% for translation in translations %}
-                    <option value="{{ translation.id }}">{{ translation }}</option>
+                    <option value="{{ translation.id }}">
+                        {{ translation.translation }} ({{ translation.language }})
+                    </option>
                     {% endfor %}{% endif %}
                 </select>
                 <button type="submit" class="btn btn-lg btn-outline-dark"
@@ -137,13 +139,10 @@
             $('#edit_phrase_form').attr('action', $url);
         });
 
-        // jQuery equivalent of JSON.parse, jQuery.parseJSON, is deprecated.
-        let add_translation_selector = document.getElementById('add_translation');
-        document.getElementById('add_translation_submit').addEventListener('click', function() {
-            const obj = JSON.parse(add_translation_selector.value);
-            let [module_id, phrase_id] = [obj[0], obj[1]];
-            let url = 'module/' + module_id + '/phrase/' + phrase_id + '/add_translation';
-            document.getElementById('add_translation_form').action = url;
+        let $add_translation_selector = $('#add_translation');
+        $('#add_translation_submit').on('click', function() {
+            let $url = 'phrase/' + $add_translation_selector.val() + '/add_translation';
+            $('#add_translation_form').attr('action', $url);
         });
         
         let $edit_translation_selector = $('#edit_translation');
