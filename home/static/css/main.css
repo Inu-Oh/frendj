@@ -51,7 +51,6 @@ body {
 
 .link-style:hover, .muted-link-style:hover {
     color: var(--link-hover) !important;
-    
 }
 
 #drop-btn:hover {

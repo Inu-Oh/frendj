@@ -672,7 +672,7 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
                     for translation in phrase_translations:
                         old_translations.add(translation.translation)
                     if old_translations != new_translations:
-                        changed.add(f"{phrase.phrase} (change translations): {', '.join(old_translations)} -> {', '.join(new_translations)}")
+                        changed.append(f"{phrase.phrase} (change translations): {', '.join(old_translations)} -> {', '.join(new_translations)}")
 
         # Count the number of unchanged phrases in the databased based on the changes 
         unchanged = total - len(new) - len(changed)

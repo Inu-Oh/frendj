@@ -8,13 +8,14 @@
         <div class="col-1"></div>
         <div class="col-5 p-3">
             {% if strength_data.learned > 0 %}
-                <p>You learned {{ strength_data.learned }} out of total
-                    {{ phrase_data|length }} phrases in course.<br>
+                <p>You learned {{ strength_data.learned }} out of a total of
+                    {{ phrase_count }} phrases in the course.<br>
                     Overall score: {{ strength_data.average }}%. </p>
             {% else %}
                 <p>No results yet. Start learning.</p>
             {% endif %}
-            <p>Browse phrases. Review performance on learned phrases in Strength.</p>
+            <p>Browse phrases. Review performance on learned phrases in the
+                Strength column below.</p>
             <p>Click on links to modules for unlearned phrases.</p>
         </div>
         <div class="col-1"></div>
@@ -47,7 +48,10 @@
         <div class="row pb-2">
             <div class="col-4 text-end fw-bold">Phrase</div>
             <div class="col-5 text-start fw-bold">Translation</div>
-            <div class="col-3 text-end fw-bold">Strength</div>
+            <div class="col-3 text-end fw-bold">
+                {% if strength_data.learned|length < phrase_count %}Link to Course / {% endif %}
+                Strength
+            </div>
         </div>
     </div>
     
