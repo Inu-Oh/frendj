@@ -8,8 +8,9 @@
         <div class="col-1"></div>
         <div class="col-5 p-3">
             {% if strength_data.learned > 0 %}
-                <p>Learned: {{ strength_data.learned }} phrases.
-                    Average score: {{ strength_data.average }}%. </p>
+                <p>You learned {{ strength_data.learned }} out of total
+                    {{ phrase_data|length }} phrases in course.<br>
+                    Overall score: {{ strength_data.average }}%. </p>
             {% else %}
                 <p>No results yet. Start learning.</p>
             {% endif %}

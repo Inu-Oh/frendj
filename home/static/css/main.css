@@ -1,8 +1,8 @@
 :root {
     --body_bg:hsl(229, 33%, 94%);
     --link-color: #126;
-    --link-hover: rgb(69, 87, 162);
-    --link-shadow: hotpink;
+    --link-hover: lightskyblue;
+    --bootstrap5-light: #f8f9fa;
 }
 
 body {
@@ -51,11 +51,15 @@ body {
 
 .link-style:hover, .muted-link-style:hover {
     color: var(--link-hover) !important;
-    text-shadow: 0 0 1.5px var(--link-shadow) !important;
+    
 }
 
-#feedback-button:hover {
-    background-color: #f8f9fa !important;
+#drop-btn:hover {
+    background-color: var(--body_bg) !important;
+}
+
+#feedback-button {
+    background-color: var(--bootstrap5-light) !important;
 }
 
 #login, #register {

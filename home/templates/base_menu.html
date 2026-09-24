@@ -31,7 +31,9 @@
                 <ul class="drop dropdown-menu dropdown-menu-end" aria-labelledby="rightnavDropdown">
                     <form action="{% url 'logout' %}?next={{ x }}" method="post">
                         {% csrf_token %}
-                        <button class="dropdown-item link-style" type="submit">Logout</button>
+                        <button id="drop-btn" class="dropdown-item link-style" type="submit">
+                            Logout
+                        </button>
                     </form>
                 </ul>
             </li>
