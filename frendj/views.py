@@ -375,6 +375,9 @@ class LearnView(LoginRequiredMixin, View):
                 'profile': profile,
                 'form': form,
                 'phrase': phrase,
+                'phrase_count': module_phrase_count,
+                'learned_count': learned_count,
+                'unlearned_count': module_phrase_count - learned_count,
                 'user_phrase_strength': user_phrase_strength, # Phrase strength object
                 'module_progress': module_progress,
                 'module_name': module.name

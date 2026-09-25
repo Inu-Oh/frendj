@@ -28,11 +28,15 @@
                     </div>
 
                     <div class="fs-5 py-2">
-                        <span class="text-muted">Module</span> &nbsp; {{ module_name }}
+                        <span class="text-muted">Module</span> &nbsp; {{ module_name }} &nbsp; 
+                        <span class="fs-6 badge bg-secondary">{{ phrase_count }} cards</span>
                     </div>
+
                     <div class="py-2">
                         <label for="prog-bar" class="text-muted small">
-                            Module progress
+                            Progress &#8226;
+                            {% if learned_count > 0 %}{{ learned_count }} done &#8226; {% endif %}
+                            {{ unlearned_count }} cards to go
                         </label>
                         <div class="progress border" id="prog-bar">
                             <div class="progress-bar progress-bar-striped bg-success fw-bold"
