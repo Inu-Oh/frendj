@@ -19,7 +19,7 @@ from .forms import ProfileForm, TestForm
 
 # Constants for setting user phrase view counts, evaluating accuracy and errors in testing views.
 INITIATE_COUNT, UNASSESSED_ACCURACY, UNASSESSED_SCORE, MAX_ERRORS = 1, False, -1, 100
-PLUS_5_XP, PLUS_9_XP = 5, 9
+PLUS_5_XP, PLUS_9_XP, QUIZ_LENGTH = 5, 9, 12
 
 
 def clear_data_from_session(request, *previous_question_data):
@@ -29,7 +29,6 @@ def clear_data_from_session(request, *previous_question_data):
                 del request.session[data_key]
             except KeyError:
                 print(f'Exception Did not clear {data_key} from session.')
-                pass
 
 
 def eval_tranlation(user_answer: str, correct_translation: str) -> tuple[float, int]:
@@ -100,7 +99,7 @@ class Home(LoginRequiredMixin, TemplateView):
         # Delete session data from exercises if it exists
         session_data_keys = ['phrase', 'user_phrase_strength_id', 'user_answer',
             'response_accuracy', 'phrase_language', 'feedback_html', 'xp_reward',
-            'test_count', 'module_id']
+            'module_id', 'testing_view', 'test_count']
         clear_data_from_session(request,*session_data_keys)
         
         # Get user phrase strength data for progress
@@ -343,9 +342,9 @@ class LearnView(LoginRequiredMixin, View):
 
     def get(self, request, pk):
         # Clear session data for previously tested phrase if present
-        prev_question_keys = ['phrase', 'user_phrase_strength_id', 'user_answer',
+        prev_card_sess_keys = ['phrase', 'user_phrase_strength_id', 'user_answer',
             'response_accuracy', 'phrase_language', 'feedback_html', 'xp_reward']
-        clear_data_from_session(request,*prev_question_keys)
+        clear_data_from_session(request,*prev_card_sess_keys)
 
         # Get data for current phrase to test and context
         profile = Profile.objects.get(user=request.user)
@@ -466,20 +465,23 @@ class PracticeView(LoginRequiredMixin, View):
     template_name = 'frendj/practice.html'
 
     def get(self, request):
-        # Set or reset the exercise session test count. End exerice after count 15.
+        if not request.session['testing_view'] == 'frendj:practice':
+            request.session['testing_view'] = 'frendj:practice'
+
+        # Set or reset the exercise session test count. End exerice after count 12.
         try:
             test_count = request.session.get('test_count')
-            if test_count >= 12:
-                request.session['test_count'] = 0
+            if test_count > QUIZ_LENGTH:
+                del request.session['test_count']
                 finished_exercise_url = reverse_lazy('frendj:home')
                 return redirect(finished_exercise_url)
         except:
-            request.session['test_count'] = 0
+            request.session['test_count'] = 1
 
         # Clear session data for previously tested phrase if present
-        prev_question_keys = ['phrase', 'user_answer', 'response_accuracy', 
+        prev_card_sess_keys = ['phrase', 'user_answer', 'response_accuracy', 
                                 'phrase_language', 'feedback_html', 'xp_reward']
-        clear_data_from_session(request,*prev_question_keys)
+        clear_data_from_session(request,*prev_card_sess_keys)
 
         # Select question or redirect if not abailable. Add context.
         profile = Profile.objects.get(user=request.user)
@@ -492,11 +494,11 @@ class PracticeView(LoginRequiredMixin, View):
             context = {
                 'profile': profile,
                 'form': form,
+                'testing_view': request.session['testing_view'],
+                'test_count': f"Card {test_count} of {QUIZ_LENGTH}",
                 'user_phrase_strength': user_phrase_strength, # Phrase strength object
                 'phrase': phrase,
             }
-            # Increment test count for each phrase test before passing to session
-            request.session['test_count'] += 1
 
             return render(request, self.template_name, context)
         except:
@@ -516,6 +518,8 @@ class PracticeView(LoginRequiredMixin, View):
             context = {
                 'profile': profile,
                 'form': form,
+                'testing_view': request.session['testing_view'],
+                'test_count': f"Card {request.session['test_count']} of {QUIZ_LENGTH}",
                 'user_phrase_strength': user_phrase_strength, # Phrase strength object
                 'phrase': phrase,
             }
@@ -565,10 +569,11 @@ class PracticeView(LoginRequiredMixin, View):
         request.session['module_id'] = module.id
         request.session['user_answer'] = user_answer # Used as backup in case of error with HTML
         request.session['response_accuracy'] = response_accuracy
-        request.session['testing_view'] = 'frendj:practice'
         request.session['phrase_language'] = phrase.language
         request.session['feedback_html'] = feedback_html
         request.session['xp_reward'] = PLUS_5_XP
+        # Increment test count once quiz is submitted
+        request.session['test_count'] += 1
 
         # Redirect to feedback if post succeeds
         success_url = reverse_lazy('frendj:feedback')
@@ -583,20 +588,23 @@ class ReviewView(LoginRequiredMixin, View):
     template_name = 'frendj/review.html'
 
     def get(self, request):
-        # Set or reset the exercise session test count. End exerice after count 15.
+        if not request.session['testing_view'] == 'frendj:review':
+            request.session['testing_view'] = 'frendj:review'
+
+        # Set or reset the exercise session test count. End exerice after count 12.
         try:
             test_count = request.session.get('test_count')
-            if test_count >= 15:
-                request.session['test_count'] = 0
+            if test_count > QUIZ_LENGTH:
+                del request.session['test_count']
                 finished_exercise_url = reverse_lazy('frendj:home')
                 return redirect(finished_exercise_url)
         except:
-            request.session['test_count'] = 0
+            request.session['test_count'] = 1
             
         # Clear session data for previously tested phrase if present
-        prev_question_keys = ['phrase', 'user_answer', 'response_accuracy', 
+        prev_card_sess_keys = ['phrase', 'user_answer', 'response_accuracy', 
                                 'phrase_language', 'feedback_html', 'xp_reward']
-        clear_data_from_session(request,*prev_question_keys)
+        clear_data_from_session(request,*prev_card_sess_keys)
 
         # Select question or redirect if not abailable. Add context.
         profile = Profile.objects.get(user=request.user)
@@ -609,11 +617,11 @@ class ReviewView(LoginRequiredMixin, View):
             context = {
                 'profile': profile,
                 'form': form,
+                'testing_view': request.session['testing_view'],
+                'test_count': f"Card {test_count} of {QUIZ_LENGTH}",
                 'user_phrase_strength': user_phrase_strength,
                 'phrase': phrase,
             }
-            # Increment test count for each phrase test before passing to session
-            request.session['test_count'] += 1
 
             return render(request, self.template_name, context)
         except:
@@ -633,6 +641,8 @@ class ReviewView(LoginRequiredMixin, View):
             context = {
                 'profile': profile,
                 'form': form,
+                'testing_view': request.session['testing_view'],
+                'test_count': f"Card {request.session['test_count']} of {QUIZ_LENGTH}",
                 'user_phrase_strength': user_phrase_strength, # Phrase strength object
                 'phrase': phrase,
             }
@@ -682,10 +692,11 @@ class ReviewView(LoginRequiredMixin, View):
         request.session['module_id'] = module.id
         request.session['user_answer'] = user_answer # Used as backup in csae of error with HTML
         request.session['response_accuracy'] = response_accuracy
-        request.session['testing_view'] = 'frendj:review'
         request.session['phrase_language'] = phrase.language
         request.session['feedback_html'] = feedback_html
         request.session['xp_reward'] = PLUS_5_XP
+        # Increment test count once quiz is submitted
+        request.session['test_count'] += 1
 
         # Redirect to feedback if post succeeds
         success_url = reverse_lazy('frendj:feedback')
@@ -700,20 +711,23 @@ class AccentView(LoginRequiredMixin, View):
     template_name = 'frendj/accent.html'
 
     def get(self, request):
-        # Set or reset the exercise session test count. End exerice after count 15.
+        if not request.session['testing_view'] == 'frendj:accent':
+            request.session['testing_view'] = 'frendj:accent'
+
+        # Set or reset the exercise session test count. End exerice after count 12.
         try:
             test_count = request.session.get('test_count')
-            if test_count >= 12:
-                request.session['test_count'] = 0
+            if test_count > QUIZ_LENGTH:
+                del request.session['test_count']
                 finished_exercise_url = reverse_lazy('frendj:home')
                 return redirect(finished_exercise_url)
         except:
-            request.session['test_count'] = 0
+            request.session['test_count'] = 1
 
         # Clear session data for previously tested phrase if present
-        prev_question_keys = ['phrase', 'user_phrase_strength_id', 'user_answer',
+        prev_card_sess_keys = ['phrase', 'user_phrase_strength_id', 'user_answer',
             'response_accuracy', 'phrase_language', 'feedback_html', 'xp_reward']
-        clear_data_from_session(request,*prev_question_keys)
+        clear_data_from_session(request,*prev_card_sess_keys)
 
         profile = Profile.objects.get(user=request.user)
         form = TestForm()
@@ -730,11 +744,11 @@ class AccentView(LoginRequiredMixin, View):
             context = {
                 'profile': profile,
                 'form': form,
+                'testing_view': request.session['testing_view'],
+                'test_count': f"Card {test_count} of {QUIZ_LENGTH}",
                 'user_phrase_strength': user_phrase_strength, # Phrase strength object
                 'phrase': phrase,
             }
-            # Increment test count for each phrase test before passing to session
-            request.session['test_count'] += 1
 
             return render(request, self.template_name, context)
         except:
@@ -755,6 +769,8 @@ class AccentView(LoginRequiredMixin, View):
             context = {
                 'profile': profile,
                 'form': form,
+                'testing_view': request.session['testing_view'],
+                'test_count': f"Card {request.session['test_count']} of {QUIZ_LENGTH}",
                 'user_phrase_strength': user_phrase_strength, # Phrase strength object
                 'phrase': phrase,
             }
@@ -800,10 +816,11 @@ class AccentView(LoginRequiredMixin, View):
         request.session['user_answer'] = user_answer  # Used as backup in csae of error with HTML
         request.session['response_accuracy'] = response_accuracy
         request.session['module_id'] = module.id
-        request.session['testing_view'] = 'frendj:accent'
         request.session['phrase_language'] = phrase.language
         request.session['feedback_html'] = feedback_html
         request.session['xp_reward'] = PLUS_9_XP
+        # Increment test count once quiz is submitted
+        request.session['test_count'] += 1
 
         # Redirect to feedback if post succeeds
         success_url = reverse_lazy('frendj:feedback')
@@ -869,6 +886,7 @@ class FeedbackView(LoginRequiredMixin, View):
             'response_accuracy': response_accuracy,
             'phrase': phrase,
             'translations': translations,
+            'test_count': f"Card {request.session['test_count'] - 1} of {QUIZ_LENGTH}",
             'testing_view': testing_view,
             'result': result,
             'module_id': module_id,

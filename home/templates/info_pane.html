@@ -15,6 +15,11 @@
             <span class="fw-bold">{{ profile.xp|intcomma }}</span>
         </div>
 
+        <div class="pt-3">
+            <h6>{{ testing_view|slice:"7:"|title }} Quiz</h6>
+            <p>{{ test_count }}</p>
+        </div>
+
         <div class="py-3">
             <label for="prog-bar" class="text-muted small">Course progress</label>
             <div class="progress border w-100" id="prog-bar">
