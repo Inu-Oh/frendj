@@ -99,8 +99,11 @@ class Home(LoginRequiredMixin, TemplateView):
         # Delete session data from exercises if it exists
         session_data_keys = ['phrase', 'user_phrase_strength_id', 'user_answer',
             'response_accuracy', 'phrase_language', 'feedback_html', 'xp_reward',
-            'module_id', 'testing_view', 'test_count']
+            'module_id', 'testing_view']
         clear_data_from_session(request,*session_data_keys)
+        # Test count for Practice, Review and Accent Quiz views is set here, incremented
+        # and deleted in respective Quiz view. This circumvents Django bug that fails full to delete session data.
+        request.session['test_count'] = 1
         
         # Get user phrase strength data for progress
         user_phrase_strength_set = UserPhraseStrength.objects.filter(user=request.user)
@@ -468,15 +471,12 @@ class PracticeView(LoginRequiredMixin, View):
         if not request.session['testing_view'] == 'frendj:practice':
             request.session['testing_view'] = 'frendj:practice'
 
-        # Set or reset the exercise session test count. End exerice after count 12.
-        try:
-            test_count = request.session.get('test_count')
-            if test_count > QUIZ_LENGTH:
-                del request.session['test_count']
-                finished_exercise_url = reverse_lazy('frendj:home')
-                return redirect(finished_exercise_url)
-        except:
-            request.session['test_count'] = 1
+        # End exerice after text count reches set quiz length
+        test_count = request.session.get('test_count')
+        if test_count > QUIZ_LENGTH:
+            del request.session['test_count']
+            finished_exercise_url = reverse_lazy('frendj:home')
+            return redirect(finished_exercise_url)
 
         # Clear session data for previously tested phrase if present
         prev_card_sess_keys = ['phrase', 'user_answer', 'response_accuracy', 
@@ -591,15 +591,12 @@ class ReviewView(LoginRequiredMixin, View):
         if not request.session['testing_view'] == 'frendj:review':
             request.session['testing_view'] = 'frendj:review'
 
-        # Set or reset the exercise session test count. End exerice after count 12.
-        try:
-            test_count = request.session.get('test_count')
-            if test_count > QUIZ_LENGTH:
-                del request.session['test_count']
-                finished_exercise_url = reverse_lazy('frendj:home')
-                return redirect(finished_exercise_url)
-        except:
-            request.session['test_count'] = 1
+        # End exerice after text count reches set quiz length
+        test_count = request.session.get('test_count')
+        if test_count > QUIZ_LENGTH:
+            del request.session['test_count']
+            finished_exercise_url = reverse_lazy('frendj:home')
+            return redirect(finished_exercise_url)
             
         # Clear session data for previously tested phrase if present
         prev_card_sess_keys = ['phrase', 'user_answer', 'response_accuracy', 
@@ -714,15 +711,12 @@ class AccentView(LoginRequiredMixin, View):
         if not request.session['testing_view'] == 'frendj:accent':
             request.session['testing_view'] = 'frendj:accent'
 
-        # Set or reset the exercise session test count. End exerice after count 12.
-        try:
-            test_count = request.session.get('test_count')
-            if test_count > QUIZ_LENGTH:
-                del request.session['test_count']
-                finished_exercise_url = reverse_lazy('frendj:home')
-                return redirect(finished_exercise_url)
-        except:
-            request.session['test_count'] = 1
+        # End exerice after text count reches set quiz length
+        test_count = request.session.get('test_count')
+        if test_count > QUIZ_LENGTH:
+            del request.session['test_count']
+            finished_exercise_url = reverse_lazy('frendj:home')
+            return redirect(finished_exercise_url)
 
         # Clear session data for previously tested phrase if present
         prev_card_sess_keys = ['phrase', 'user_phrase_strength_id', 'user_answer',
