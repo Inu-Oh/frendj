@@ -66,3 +66,16 @@ body {
     width: 100%;
     margin: 0 auto;
 }
+
+#module-complete-modal, #quiz-complete-modal {
+    background-color: rgba(124, 117, 150, 0.5);
+}
+
+.modal-header, .modal-content, .modal-footer {
+    background-color: rgb(255, 215, 0);
+}
+
+.modal-section, .modal-btn {
+    background-color: rgba(124, 117, 150, 0.05);
+    border-color: rgba(124, 117, 150, 0.05);
+}

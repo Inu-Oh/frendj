@@ -15,10 +15,12 @@
             <span class="fw-bold">{{ profile.xp|intcomma }}</span>
         </div>
 
+        {% if testing_view != "frendj:learn" %}
         <div class="pt-3">
             <h6>{{ testing_view|slice:"7:"|title }} Quiz</h6>
             <p>{{ test_count }}</p>
         </div>
+        {% endif %}
 
         <div class="py-3">
             <label for="prog-bar" class="text-muted small">Course progress</label>

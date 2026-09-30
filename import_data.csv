@@ -12,7 +12,7 @@ phrase_id,module_name,phrase,phrase_lang,translations
 1870,tools,tool,English,"[""outil""]"
 1871,tools,outil,French,"[""tool""]"
 1872,adjectives,gentil,French,"[""nice"", ""kind""]"
-1873,adjectives,nice,English,"[""gentil"", ""sympa""]"
+1873,adjectives,nice,English,"[""gentil"", ""gentille"", ""sympa""]"
 1874,anatomy,nombril,French,"[""navel""]"
 1875,anatomy,navel,English,"[""nombril""]"
 1876,family,fils,French,"[""son""]"

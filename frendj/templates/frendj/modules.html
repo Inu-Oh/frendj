@@ -47,7 +47,6 @@
                     </div>
                 </div>
 
-                
             </main>
         </div>
 
@@ -60,4 +59,39 @@
         {% endif %}
     </div>
 </div>
+
+{% if module_complete_msg %}
+<div class="modal fade" id="module-complete-modal" tabindex="-1" 
+    aria-labelledby="module-complete-label" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-body p-4 m-4">
+                <div class="modal-section mb-4 p-4 rounded-3 row">
+                    <h1 class="modal-title" id="module-complete-label">Module Complete</h1>
+                    <p class="pt-5">{{ module_complete_msg }}</p>    
+            </div>
+
+            <div class="modal-footer border-0 p-3">
+                <button type="button" class="btn btn-outline-dark modal-btn"
+                    data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $modal = $('#module-complete-modal');
+
+    $(document).ready(function() {
+        $modal.modal('show');
+    });
+
+    $(document).keydown(function(e) {
+        if(e.keyCode==13){
+            $modal.modal('hide');
+        }
+    });
+</script>
+{% endif %}
+
 {% endblock content %}

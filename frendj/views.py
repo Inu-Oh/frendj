@@ -65,7 +65,6 @@ def feedback(
     Used for learn, practice and review exercise view classes.
     """
 
-    user_answer = user_answer.replace("&#x27;", "'").replace("&#45;", "-").replace("&#44;", ",")
     # Return no feedback for correct answers
     if translation_score >= 100 and error_count <= 0:
         return f'<span class="text-success">{user_answer}</span>' 
@@ -73,6 +72,7 @@ def feedback(
     elif translation_score < 75 or error_count >= 4: 
         return f'<span class="text-danger">{user_answer}</span>' 
     else: # Provide more detailed feedback if errors are minimal
+        user_answer = user_answer.replace("&#x27;", "'").replace("&#45;", "-").replace("&#44;", ",")
         matcher = SequenceMatcher(None, a=user_answer, b=correct_translation)
         words = []
         for tag, i1, i2, j1, j2 in matcher.get_opcodes():
@@ -97,6 +97,13 @@ class Home(LoginRequiredMixin, TemplateView):
         except:
             create_profile_url = reverse_lazy('frendj:create_profile')
             return redirect(create_profile_url)
+
+        # Add Quiz completion message to context if present
+        if msg := request.session.get('quiz_complete_msg'):
+            quiz_complete_msg = msg
+            del request.session['quiz_complete_msg']
+        else:
+            quiz_complete_msg = ""
         
         # Delete session data from exercises if it exists
         session_data_keys = ['phrase', 'user_phrase_strength_id', 'user_answer',
@@ -129,6 +136,7 @@ class Home(LoginRequiredMixin, TemplateView):
             'unlearned_phrase_count': unlearned_phrase_count,
             'learned_phrase_count': learned_phrase_count,
             'progress': progress,
+            'quiz_complete_msg': quiz_complete_msg,
         }
         return render(request, self.template_name, context)
 
@@ -471,16 +479,17 @@ class PracticeView(LoginRequiredMixin, View):
     template_name = 'frendj/practice.html'
 
     def get(self, request):
-        if not request.session['testing_view'] == 'frendj:practice':
+        if ('testing_view' not in request.session or 
+            request.session['testing_view'] != 'frendj:practice'):
             request.session['testing_view'] = 'frendj:practice'
 
         # End exerice after text count reches set quiz length
         test_count = request.session.get('test_count')
         if test_count > QUIZ_LENGTH:
             del request.session['test_count']
-            msg = "Practice quiz complete! You got "
+            msg = "Practice quiz complete!<br>You got "
             msg += f"{request.session['correct_count']} out of {QUIZ_LENGTH}."
-            request.session['module_complete_msg'] = msg
+            request.session['quiz_complete_msg'] = msg
             finished_exercise_url = reverse_lazy('frendj:home')
             return redirect(finished_exercise_url)
 
@@ -535,9 +544,7 @@ class PracticeView(LoginRequiredMixin, View):
         user_answer = html.escape(form.cleaned_data['answer'].strip())
         cleaned_answer = unidecode(user_answer.lower())
 
-        # Track phrase as learned by the user. Initiate view, score and error counts
-        user_phrase_strength.learned = True
-        user_phrase_strength.views = INITIATE_COUNT
+        # Initiate score and error counts.
         score = UNASSESSED_SCORE
         errors = MAX_ERRORS
 
@@ -565,6 +572,7 @@ class PracticeView(LoginRequiredMixin, View):
             response_accuracy = False
 
         # Adjust and save the user's phrase strength
+        user_phrase_strength.views += 1
         user_phrase_strength.strength = (
             (user_phrase_strength.views - 
                 (user_phrase_strength.views - user_phrase_strength.correct)
@@ -595,12 +603,16 @@ class ReviewView(LoginRequiredMixin, View):
     template_name = 'frendj/review.html'
 
     def get(self, request):
-        if not request.session['testing_view'] == 'frendj:review':
+        if ('testing_view' not in request.session or 
+            request.session['testing_view'] != 'frendj:review'):
             request.session['testing_view'] = 'frendj:review'
 
         # End exerice after text count reches set quiz length
         test_count = request.session.get('test_count')
         if test_count > QUIZ_LENGTH:
+            msg = "Review quiz complete!<br>You got "
+            msg += f"{request.session['correct_count']} out of {QUIZ_LENGTH}."
+            request.session['quiz_complete_msg'] = msg
             del request.session['test_count']
             finished_exercise_url = reverse_lazy('frendj:home')
             return redirect(finished_exercise_url)
@@ -656,9 +668,7 @@ class ReviewView(LoginRequiredMixin, View):
         user_answer = html.escape(form.cleaned_data['answer'].strip())
         cleaned_answer = unidecode(user_answer.lower())
 
-        # Track phrase as learned by the user. Initiate view, score and error counts
-        user_phrase_strength.learned = True
-        user_phrase_strength.views = INITIATE_COUNT
+        # Initiate score and error counts
         score = UNASSESSED_SCORE
         errors = MAX_ERRORS
 
@@ -686,6 +696,7 @@ class ReviewView(LoginRequiredMixin, View):
             response_accuracy = False
 
         # Adjust and save the user's phrase strength
+        user_phrase_strength.views += 1
         user_phrase_strength.strength = (
             (user_phrase_strength.views - 
                 (user_phrase_strength.views - user_phrase_strength.correct)
@@ -716,12 +727,16 @@ class AccentView(LoginRequiredMixin, View):
     template_name = 'frendj/accent.html'
 
     def get(self, request):
-        if not request.session['testing_view'] == 'frendj:accent':
+        if ('testing_view' not in request.session or
+            request.session['testing_view'] != 'frendj:accent'):
             request.session['testing_view'] = 'frendj:accent'
 
         # End exerice after text count reches set quiz length
         test_count = request.session.get('test_count')
         if test_count > QUIZ_LENGTH:
+            msg = "Practice quiz complete!<br>You got "
+            msg += f"{request.session['correct_count']} out of {QUIZ_LENGTH}."
+            request.session['quiz_complete_msg'] = msg
             del request.session['test_count']
             finished_exercise_url = reverse_lazy('frendj:home')
             return redirect(finished_exercise_url)
