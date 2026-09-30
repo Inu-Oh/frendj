@@ -19,7 +19,7 @@ from .forms import ProfileForm, TestForm
 
 # Constants for setting user phrase view counts, evaluating accuracy and errors in testing views.
 INITIATE_COUNT, UNASSESSED_ACCURACY, UNASSESSED_SCORE, MAX_ERRORS = 1, False, -1, 100
-PLUS_5_XP, PLUS_9_XP, QUIZ_LENGTH = 5, 9, 12
+PLUS_5_XP, PLUS_9_XP, QUIZ_LENGTH, RESET_TEST_COUNT, RESET_SCORE = 5, 9, 12, 1, 0
 
 
 def clear_data_from_session(request, *previous_question_data):
@@ -36,7 +36,8 @@ def eval_tranlation(user_answer: str, correct_translation: str) -> tuple[float, 
     Evaluates the test score for a translation entered by the user
     in comparison to correct translation.
     """
-    
+
+    user_answer = user_answer.replace("&#x27;", "'").replace("&#45;", "-").replace("&#44;", ",")
     if user_answer == correct_translation:
         translation_score, error_count = 100, 0
     else:
@@ -64,6 +65,7 @@ def feedback(
     Used for learn, practice and review exercise view classes.
     """
 
+    user_answer = user_answer.replace("&#x27;", "'").replace("&#45;", "-").replace("&#44;", ",")
     # Return no feedback for correct answers
     if translation_score >= 100 and error_count <= 0:
         return f'<span class="text-success">{user_answer}</span>' 
@@ -103,7 +105,8 @@ class Home(LoginRequiredMixin, TemplateView):
         clear_data_from_session(request,*session_data_keys)
         # Test count for Practice, Review and Accent Quiz views is set here, incremented
         # and deleted in respective Quiz view. This circumvents Django bug that fails full to delete session data.
-        request.session['test_count'] = 1
+        request.session['test_count'] = RESET_TEST_COUNT
+        request.session['correct_count'] = RESET_SCORE
         
         # Get user phrase strength data for progress
         user_phrase_strength_set = UserPhraseStrength.objects.filter(user=request.user)
@@ -475,6 +478,9 @@ class PracticeView(LoginRequiredMixin, View):
         test_count = request.session.get('test_count')
         if test_count > QUIZ_LENGTH:
             del request.session['test_count']
+            msg = "Practice quiz complete! You got "
+            msg += f"{request.session['correct_count']} out of {QUIZ_LENGTH}."
+            request.session['module_complete_msg'] = msg
             finished_exercise_url = reverse_lazy('frendj:home')
             return redirect(finished_exercise_url)
 
@@ -554,6 +560,7 @@ class PracticeView(LoginRequiredMixin, View):
             response_accuracy = True
             profile.xp += PLUS_5_XP
             profile.save()
+            request.session['correct_count'] += 1
         else:
             response_accuracy = False
 
@@ -674,6 +681,7 @@ class ReviewView(LoginRequiredMixin, View):
             profile.xp += PLUS_5_XP
             profile.save()
             response_accuracy = True
+            request.session['correct_count'] += 1
         else:
             response_accuracy = False
 
@@ -789,8 +797,8 @@ class AccentView(LoginRequiredMixin, View):
                 response_accuracy = True
                 matched_translation = translation.translation
                 feedback_html = feedback(user_answer, matched_translation, errors, score)
+                request.session['correct_count'] += 1
                 break
-            # TODO - review the elif block / Is it still needed.
             elif score > highest_score:
                 response_accuracy = False    
         try: 
