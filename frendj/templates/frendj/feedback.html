@@ -54,7 +54,7 @@
                 <a id="feedback-button" autofocus
                     class="btn btn-sm btn-outline-primary border border-secondary rounded-2 fs-4 fw-bold w-100 text-start py-2 mb-3"
                     {% if testing_view == 'frendj:learn' %}
-                        href="{% url testing_view module_id %}"
+                        href="{% url testing_view module.id %}"
                     {% else %}
                         href="{% url testing_view %}" 
                     {% endif %}

@@ -137,6 +137,7 @@ class Home(LoginRequiredMixin, TemplateView):
             'learned_phrase_count': learned_phrase_count,
             'progress': progress,
             'quiz_complete_msg': quiz_complete_msg,
+            'testing_view': None,
         }
         return render(request, self.template_name, context)
 
@@ -343,6 +344,7 @@ class ModulesView(LoginRequiredMixin, ListView):
             'open_modules': open_modules,
             'closed_modules': closed_modules,
             'module_complete_msg': module_complete_msg,
+            'testing_view': None,
         }
         return render(request, self.template_name, context)
 
@@ -393,11 +395,11 @@ class LearnView(LoginRequiredMixin, View):
                 'unlearned_count': module_phrase_count - learned_count,
                 'user_phrase_strength': user_phrase_strength, # Phrase strength object
                 'module_progress': module_progress,
-                'module_name': module.name
+                'module': module
             }
             return render(request, self.template_name, context)
         except: # If no unlearned phrase is found, redirect to home page
-            msg = f'Congrats! You finished the "{module.name}" module.'
+            msg = f'Congrats! You finished the <b>{module.name.capitalize()}</b> module.'
             request.session['module_complete_msg'] = msg
             finished_learning_url = reverse_lazy('frendj:modules')
             return redirect(finished_learning_url)
@@ -511,6 +513,7 @@ class PracticeView(LoginRequiredMixin, View):
                 'form': form,
                 'testing_view': request.session['testing_view'],
                 'test_count': f"Card {test_count} of {QUIZ_LENGTH}",
+                'progress': round( ( (test_count - 1) / QUIZ_LENGTH) * 100 ),
                 'user_phrase_strength': user_phrase_strength, # Phrase strength object
                 'phrase': phrase,
             }
@@ -535,6 +538,7 @@ class PracticeView(LoginRequiredMixin, View):
                 'form': form,
                 'testing_view': request.session['testing_view'],
                 'test_count': f"Card {request.session['test_count']} of {QUIZ_LENGTH}",
+                'progress': round( ( (request.session['test_count'] - 1) / QUIZ_LENGTH) * 100 ),
                 'user_phrase_strength': user_phrase_strength, # Phrase strength object
                 'phrase': phrase,
             }
@@ -635,6 +639,7 @@ class ReviewView(LoginRequiredMixin, View):
                 'form': form,
                 'testing_view': request.session['testing_view'],
                 'test_count': f"Card {test_count} of {QUIZ_LENGTH}",
+                'progress': round( ( (test_count - 1) / QUIZ_LENGTH) * 100 ),
                 'user_phrase_strength': user_phrase_strength,
                 'phrase': phrase,
             }
@@ -659,6 +664,7 @@ class ReviewView(LoginRequiredMixin, View):
                 'form': form,
                 'testing_view': request.session['testing_view'],
                 'test_count': f"Card {request.session['test_count']} of {QUIZ_LENGTH}",
+                'progress': round( ( (request.session['test_count'] - 1) / QUIZ_LENGTH) * 100 ),
                 'user_phrase_strength': user_phrase_strength, # Phrase strength object
                 'phrase': phrase,
             }
@@ -764,6 +770,7 @@ class AccentView(LoginRequiredMixin, View):
                 'testing_view': request.session['testing_view'],
                 'test_count': f"Card {test_count} of {QUIZ_LENGTH}",
                 'user_phrase_strength': user_phrase_strength, # Phrase strength object
+                'progress': round( ( (test_count - 1) / QUIZ_LENGTH) * 100 ),
                 'phrase': phrase,
             }
 
@@ -789,6 +796,7 @@ class AccentView(LoginRequiredMixin, View):
                 'testing_view': request.session['testing_view'],
                 'test_count': f"Card {request.session['test_count']} of {QUIZ_LENGTH}",
                 'user_phrase_strength': user_phrase_strength, # Phrase strength object
+                'progress': round( ( (request.session['test_count'] - 1) / QUIZ_LENGTH) * 100 ),
                 'phrase': phrase,
             }
             return render(request, self.template_name, context)
@@ -875,9 +883,9 @@ class FeedbackView(LoginRequiredMixin, View):
                 user=request.user,
                 phrase__in=module_phrases
             ).count()
-            module_progress = round( (user_learned_count / module_phrase_count) * 100 )
+            progress = round( (user_learned_count / module_phrase_count) * 100 )
         else:
-            module_progress = None
+            progress = round( ( (request.session['test_count'] - 1) / QUIZ_LENGTH ) * 100 )
 
         # Feedback phrases
         if response_accuracy:
@@ -892,10 +900,11 @@ class FeedbackView(LoginRequiredMixin, View):
                 "You'll get it next time", "It'll stick eventually"
                 ]
             result = choice(wrong)
-        try:
-            module_id = request.session.get('module_id')
-        except:
-            module_id = None
+
+        learned_count = round(
+                module.phrases_in_module.count() * ( progress / 100 )
+            )
+        unlearned_count = module.phrases_in_module.count() - learned_count
 
         context = {
             'profile': profile,
@@ -906,10 +915,11 @@ class FeedbackView(LoginRequiredMixin, View):
             'test_count': f"Card {request.session['test_count'] - 1} of {QUIZ_LENGTH}",
             'testing_view': testing_view,
             'result': result,
-            'module_id': module_id,
+            'module': module,
+            'learned_count': learned_count,
+            'unlearned_count': unlearned_count,
             'feedback_html': feedback_html,
-            'module_progress': module_progress,
-            'module_name': module.name,
+            'progress': progress,
             'xp_reward': xp_reward
         }
         # Retrieve and pass on test count for the current exercise session

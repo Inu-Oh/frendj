@@ -88,6 +88,7 @@ TEMPLATES = [
                 'django.contrib.messages.context_processors.messages',
                 'home.context_processors.settings',
             ],
+            "string_if_invalid": "MISSING VARIABLE %s",
         },
     },
 ]
