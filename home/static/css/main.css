@@ -33,6 +33,18 @@ body {
     height: 1.5rem;
 }
 
+#module-search {
+    max-width: 18rem;
+}
+
+#glossary-container {
+    background-color: var(--body_bg) !important;
+    border: none;
+    max-height: 87vh;
+    overflow-y: auto;
+}
+
+/* TODO - Check if #cointainer-card is still used */
 #container-card {
     background-color: var(--body_bg) !important;
     border: none;

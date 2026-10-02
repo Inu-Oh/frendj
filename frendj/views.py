@@ -290,6 +290,7 @@ class GlossaryView(LoginRequiredMixin, ListView):
             'search': search,
             'phrase_count': phrase_count,
             'strength_data': strength_data,
+            'testing_view': None,
         }
         return render(request, self.template_name, context)
 
@@ -335,6 +336,11 @@ class ModulesView(LoginRequiredMixin, ListView):
             if not module in open_modules:
                 closed_modules.append(module)
 
+        # Search result implemention for search bar
+        search = request.GET.get("search", False)
+        if search:
+            modules = [d for d in modules if search.lower() in d.name.lower()]
+
         context = {
             'profile': profile,
             'unlearned_phrase_count': unlearned_phrase_count,
@@ -345,6 +351,7 @@ class ModulesView(LoginRequiredMixin, ListView):
             'closed_modules': closed_modules,
             'module_complete_msg': module_complete_msg,
             'testing_view': None,
+            'search': search,
         }
         return render(request, self.template_name, context)
 

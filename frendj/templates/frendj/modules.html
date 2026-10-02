@@ -11,15 +11,27 @@
         <div class="col-8">
             <main class="main card bg-light p-0">
 
-
-                <div class="card-header bg-light">
-                    <h1 class="fs-3 card-title pt-1">
-                        Learning modules
-                    </h1>
+                <div class="card-header bg-light rounded-top">
+                    <div class="container-fluid d-flex justify-content-between">
+                        <h1 class="fs-3 card-title pt-2">
+                            Learning modules
+                        </h1>
+                        <section id="module-search" class="float-end">
+                            <form action="" muted="get" class="m-2 input-group">
+                                <input type="text" placeholder="Search phrases and translations" name="search"
+                                class="form-control"
+                                {% if search %} value="{{ search }}" {% endif %}>
+                                <button type="submit" class="btn btn-outline-dark">
+                                    <i class="fa fa-search"></i></button>
+                                <a href="{% url 'frendj:modules' %}" class="btn btn-outline-dark">
+                                    <i class="fa fa-undo pt-1"></i></a>
+                            </form>
+                        </section>
+                    </div>
                 </div>
 
 
-                <div id="module-list" class="card-body bg-white">
+                <div id="module-list" class="card-body bg-white rounded-bottom">
                     <div class="card-text">
 
                     {% for module in modules %}
@@ -68,7 +80,8 @@
             <div class="modal-body p-4 m-4">
                 <div class="modal-section mb-4 p-4 rounded-3 row">
                     <h1 class="modal-title" id="module-complete-label">Module Complete</h1>
-                    <p class="pt-5">{{ module_complete_msg|safe }}</p>    
+                    <p class="pt-5">{{ module_complete_msg|safe }}</p>  
+                </div>  
             </div>
 
             <div class="modal-footer border-0 p-3">
