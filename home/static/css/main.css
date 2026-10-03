@@ -9,7 +9,7 @@ body {
     background-color: var(--body_bg) !important;
     user-select: none
 }
-
+/* TODO - is the nonav class still needed - delete */
 .nonav {
     background-color: var(--body_bg) !important;
     position: fixed;
@@ -33,15 +33,15 @@ body {
     height: 1.5rem;
 }
 
-#module-search {
-    max-width: 18rem;
-}
-
 #glossary-container {
     background-color: var(--body_bg) !important;
     border: none;
     max-height: 86vh;
     overflow-y: auto;
+}
+
+#narrow-staff-form {
+    max-width: 50rem;
 }
 
 .footer {
@@ -69,6 +69,10 @@ body {
     max-width: 39rem;
     width: 100%;
     margin: 0 auto;
+}
+
+#module-search {
+    max-width: 18rem;
 }
 
 #module-complete-modal, #quiz-complete-modal {
