@@ -40,15 +40,7 @@ body {
 #glossary-container {
     background-color: var(--body_bg) !important;
     border: none;
-    max-height: 87vh;
-    overflow-y: auto;
-}
-
-/* TODO - Check if #cointainer-card is still used */
-#container-card {
-    background-color: var(--body_bg) !important;
-    border: none;
-    max-height: 37rem;
+    max-height: 86vh;
     overflow-y: auto;
 }
 
