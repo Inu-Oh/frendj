@@ -135,16 +135,20 @@ class CreateTranslationView(PermissionRequiredMixin, CreateView):
             return redirect(non_staff_url)
         
         phrase = Phrase.objects.get(id=pk)
+        phrase_lang = phrase.language
+        translation_lang = "French" if phrase_lang == "English" else "English"
         module = phrase.module
         phrase_set = Phrase.objects.filter(module=module)
         translations = Translation.objects.filter(phrase=phrase)
+        
         form = CreateTranslationForm()
         context = {
             'form': form,
             'module': module,
             'current_phrase': phrase,
             'phrase_set': phrase_set,
-            'translations': translations
+            'translations': translations,
+            'translation_language': translation_lang,
         }
         return render(request, self.template_name, context)
     
@@ -155,6 +159,8 @@ class CreateTranslationView(PermissionRequiredMixin, CreateView):
         
         form = CreateTranslationForm(request.POST)
         phrase = Phrase.objects.get(id=pk)
+        phrase_lang = phrase.language
+        translation_lang = "French" if phrase_lang == "English" else "English"
 
         if not form.is_valid():
             module = phrase.module
@@ -166,12 +172,14 @@ class CreateTranslationView(PermissionRequiredMixin, CreateView):
                 'module': module,
                 'current_phrase': phrase,
                 'phrase_set': phrase_set,
-                'translations': translations
+                'translations': translations,
+                'translation_language': translation_lang,
             }
             return render(request, self.template_name, context)
 
         translation = form.save(commit=False)
         translation.phrase = phrase
+        translation.language = translation_lang
         translation.save()
 
         success_url = reverse_lazy('staff:add_translation', kwargs={'pk': pk})
@@ -259,14 +267,16 @@ class UpdateTranslationView(PermissionRequiredMixin, UpdateView):
             return redirect(non_staff_url)
     
         translation = Translation.objects.get(id=pk)
+        translation_lang = translation.language
         form = UpdateTranslationForm(instance=translation)
-        phrase = Phrase.objects.get(phrase=translation.phrase)
+        phrase = Phrase.objects.get(id=translation.phrase.id)
         module = Module.objects.get(name=phrase.module)
         context = {
             'form': form,
             'module': module,
             'phrase': phrase,
-            'translation': translation
+            'translation': translation,
+            'translation_language': translation_lang,
         }
         return render(request, self.template_name, context)
 
@@ -276,18 +286,22 @@ class UpdateTranslationView(PermissionRequiredMixin, UpdateView):
             return redirect(non_staff_url)
         
         translation = get_object_or_404(Translation, id=pk)
+        translation_lang = translation.language
         form = UpdateTranslationForm(request.POST, instance=translation)
         if not form.is_valid():
-            phrase = Phrase.objects.get(phrase=translation.phrase)
+            phrase = Phrase.objects.get(id=translation.phrase.id)
             module = Module.objects.get(name=phrase.module)
             context = {
                 'form': form,
                 'module': module,
                 'phrase': phrase,
-                'translation': translation
+                'translation': translation,
+                'translation_language': translation_lang,
             }
             return render(request, self.template_name, context)
 
+        translation = form.save(commit=False)
+        translation.language = translation_lang
         form.save()
         success_url = reverse_lazy('staff:manage_content')
         return redirect(success_url)

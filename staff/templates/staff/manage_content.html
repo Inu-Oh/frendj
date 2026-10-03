@@ -26,7 +26,9 @@
                 <select id="edit_module" class="form-control" required>
                     <option disabled selected value>Select a module to edit</option>
                     {% if modules %}{% for module in modules %}
-                    <option value="{{ module.id }}">{{ module.name|title }}</option>
+                    <option value="{{ module.id }}">
+                        {{ module.name|title }} ({{ module.phrases_in_module.count }})
+                    </option>   
                     {% endfor %}{% endif %}
                 </select>
                 <button type="submit" class="btn btn-lg btn-outline-dark"

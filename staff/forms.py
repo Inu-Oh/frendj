@@ -27,12 +27,12 @@ class CreatePhraseForm(forms.ModelForm):
 class CreateTranslationForm(forms.ModelForm):
     class Meta:
         model = Translation
-        fields = ['translation', 'language']
+        fields = ['translation'] #, 'language']
     
     def __init__(self, *args, **kwargs):
         super(CreateTranslationForm, self).__init__(*args, **kwargs)
         self.fields['translation'].label = "Translation "
-        self.fields['language'].label = "Language of translation "
+# self.fields['language'].label = "Language of translation "
 
 
 class UpdatePhraseForm(forms.ModelForm):
@@ -50,13 +50,13 @@ class UpdatePhraseForm(forms.ModelForm):
 class UpdateTranslationForm(forms.ModelForm):
     class Meta:
         model = Translation
-        fields = ['translation', 'phrase', 'language']
+        fields = ['translation', 'phrase'] #, 'language']
 
     def __init__(self, *args, **kwargs):
         super(UpdateTranslationForm, self).__init__(*args, **kwargs)
         self.fields['translation'].label = "Translation "
         self.fields['phrase'].label = "Option to reassign translation to another phrase "
-        self.fields['language'].label = "Language of translation "
+# self.fields['language'].label = "Language of translation "
 
 
 class CsvTestForm(forms.Form):

@@ -15,11 +15,11 @@
         
         {% if translations %}
         <h5  class="text-muted">
-            Translations to {{ current_phrase.phrase }}
+            Translations to {{ current_phrase.phrase }} ({{ current_phrase.language }})
         </h5>
         <ul>
             {% for translation in translations %}
-            <li>{{ translation.translation }}</li>
+            <li>{{ translation.translation }} ({{ translation.language }}) </li>
             {% endfor %}
         </ul>
         {% else %}
@@ -33,6 +33,7 @@
             class="p-2">
             {% csrf_token %}
             {{ form|crispy }}
+            <p>Language of translation will be {{ translation_language }}</p>
             <input type="submit" value="Submit"
                 class="btn btn-outline-success me-3 text-dark">
             <input type="submit" value="Cancel &nbsp;&raquo;&nbsp; return to menu"

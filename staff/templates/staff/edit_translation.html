@@ -18,6 +18,7 @@
         <form action="" method="post" enctype="multipart/form-data" class="p-2">
             {% csrf_token %}
             {{ form|crispy }}
+            <p>Language of translation will be {{ translation_language }}</p>
             <input type="submit" value="Submit"
                 class="btn btn-outline-success me-3 text-dark">
             <input type="submit" value="Cancel &nbsp;&raquo;&nbsp; return to menu"
