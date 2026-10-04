@@ -1,61 +1,91 @@
 {% extends "base_menu.html" %}
 
 
-{% block header %}
-<h1 class="p-3 fs-2">
-    <span class="text-muted">Add translations to phrase</span> {{ current_phrase.phrase }}
-    <span class="text-muted"> in module</span> {{ module.name}}
-</h1>
-{% endblock header %}
-
-
 {% block content %}
-<div class="container-fluid p-3 row">
-    <div class="col-6">
+<div class="container-fluid w-100">
+    <div class="p-3">
+    <header class="container-fluid p-3 text-muted">
+        <h1 class="fs-2 ">{{ current_phrase.language }} Phrase:<span class="text-dark">
+            {{ current_phrase.phrase }}</span> (in module: {{ module.name|title }})
+        </h1>
+        <p class="fs-5 ps-3">
+            Use this form to add translations to this phrase 
+        </p>
         
         {% if translations %}
-        <h5  class="text-muted">
-            Translations to {{ current_phrase.phrase }} ({{ current_phrase.language }})
-        </h5>
-        <ul>
-            {% for translation in translations %}
-            <li>{{ translation.translation }} ({{ translation.language }}) </li>
-            {% endfor %}
-        </ul>
-        {% else %}
-        <h5  class="text-muted">
-            No translations yet for {{ current_phrase.phrase }}
-        </h5>
+            <h5 class="text-muted">
+                List of {{ translations.0.language }} translations already entered for the
+                phrase <span class="text-dark">"{{ current_phrase.phrase }}"</span>
+            </h5>
+            <p class="text-dark ps-3">
+                {% for tr in translations %}"{{ tr.translation }}", {% endfor %}
+            </p>
+            {% else %}
+            <h5  class="text-muted">
+                No translations have been added for this phrase
+            </h5>
         {% endif %}
-        <h4 class="py-3">Add a new translation to the phrase {{ current_phrase.phrase}} </h4>
-        {% load crispy_forms_tags %}
-        <form action="" method="post" enctype="multipart/form-data"
-            class="p-2">
-            {% csrf_token %}
-            {{ form|crispy }}
-            <p>Language of translation will be {{ translation_language }}</p>
-            <input type="submit" value="Submit"
-                class="btn btn-outline-success me-3 text-dark">
-            <input type="submit" value="Cancel &nbsp;&raquo;&nbsp; return to menu"
-                class="btn btn-outline-danger text-dark"
-                onclick="window.location.href='{% url 'staff:manage_content' %}';return false;">
-        </form>
-    </div>
-    <div class="col-6">
-        {% if phrase_set|length > 1 %}
-        <h4 class="text-muted pb-3">Enough translations to this phrase?</h4>
-        <h5 class="fs-5">Add translations to another phrase in {{ module.name}} </h5>
-        <p class="text-muted">Chooose a phrase</p>
-        {% for phrase in phrase_set %}{% if phrase != current_phrase %}
-        <a href="{% url 'staff:add_translation' phrase.id %}"
-            class="btn btn-outline-dark m-1">{{ phrase.phrase }}</a>
-            {% endif %}{% endfor %}    
-        {% endif %}
+    </header>
+
+    <main class="container row pb-3">
+        <div class="border border-3 rounded-4 p-4 col-7">
+            <h3 class="py-3">Add translation of "{{ current_phrase.phrase}}"" </h4>
+            {% load crispy_forms_tags %}
+            <form action="" method="post" enctype="multipart/form-data"
+                class="p-2">
+                {% csrf_token %}
+                {{ form|crispy }}
+                <p>Language of translation will be {{ translation_language }}</p>
+                <div class="container-fluid d-flex justify-content-between">
+                    <input type="submit" value="Submit"
+                        class="btn btn-outline-success me-3 text-dark">
+                    <input id="cancel-button" type="submit" 
+                        value="Cancel \u2022 return to menu"
+                        class="btn btn-outline-danger text-dark" 
+                        onclick="window.location.href='{% url 'staff:manage_content' %}';return false;">
+                </div>
+            </form>
+        </div>
+        <div class="col-5 p-4">
+            {% if phrase_set|length > 1 %}
+            <h5 class="text-muted pb-3">
+                Enough translations of <span class="text-dark">"{{ current_phrase.phrase }}"</span>?
+            </h5>
+            <h6 class="text-muted ps-2">
+                Add translations of another phrase in the
+                <span class="text-dark fw-bold">{{ module.name|title }}</span> module</h6>
+            <small>Phrase links</small>
+            <div>
+                {% for phrase in phrase_set %}{% if phrase != current_phrase %}
+                    <a href="{% url 'staff:add_translation' phrase.id %}"
+                        class="btn btn-sm btn-outline-dark m-1">
+                        {{ phrase.phrase }} ({{ phrase.language|slice:2 }})
+                    </a>
+                {% endif %}{% endfor %}
+            </div>   
+            {% endif %}
+        </div>
+    </main>
     </div>
 </div>
 {% endblock content %}
 
 
-{% block footer %}
-
-{% endblock footer %}
+{% block script %}
+<script>
+    $(document).ready(function() {
+        if ($(window).width() < 1000) {
+            $("#cancel-button").val("Cancel");
+        } else {
+            $("#cancel-button").val("Cancel \u2022 return to menu");
+        }
+        $(window).resize(function() {
+            if ($(window).width() < 1000) {
+                $("#cancel-button").val("Cancel");
+            } else {
+                $("#cancel-button").val("Cancel \u2022 return to menu");
+            }
+        });
+    });
+</script>
+{% endblock script %}
