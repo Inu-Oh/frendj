@@ -2,19 +2,30 @@
 
 
 {% block content %}
-<div class="container-fluid d-flex justify-content-center">
+<div class="container-fluid w-100">
     <div class="p-3">
     <header class="container-fluid p-3 text-muted">
         <h1 class="fs-2 ">
             <span class="text-dark">{{ module.name|title }}</span> module
         </h1>
-        <p class="fs-5">
+        <p class="fs-5 ps-3">
             Use this form to add vocabulary and expressions to the
             <span class="text-dark fw-bold">{{ module.name|title }}</span> module
         </p>
         {% if phrases %}
             <h5 class="text-dark">List of phrases already in this module</h5>
-            <p class="text-dark">"{{ phrases|join:'", "' }}"</p>
+            <p class="text-dark ps-3">
+                <span class="fw-bold">English:</span>
+                {% for phrase in phrases %}{% if phrase.language == "English" %}
+                "{{ phrase }}",
+                {% endif %}{% endfor %}
+            </p>
+            <p class="text-dark ps-3">
+                <span class="fw-bold">French:</span>
+                {% for phrase in phrases %}{% if phrase.language == "French" %}
+                "{{ phrase }}",
+                {% endif %}{% endfor %}
+            </p>
         {% else %}
             <h5 class="text-dark">
                 No phrases have been added yet to this module
@@ -33,8 +44,9 @@
                 <div class="container-fluid d-flex justify-content-between">
                     <input type="submit" value="Submit"
                         class="btn btn-outline-success me-3 text-dark">
-                    <input type="submit" value="Cancel &nbsp;&raquo;&nbsp; return to menu"
-                        class="btn btn-outline-danger text-dark"
+                    <input id="cancel-button" type="submit" 
+                        value="Cancel &nbsp;&raquo;&nbsp; return to menu"
+                        class="btn btn-outline-danger text-dark" 
                         onclick="window.location.href='{% url 'staff:manage_content' %}';return false;">
                 </div>
             </form>
@@ -49,14 +61,24 @@
             <p>Chooose a phrase</p>
             {% for phrase in phrases %}
                 <a href="{% url 'staff:add_translation' phrase.id %}"
-                    class="btn btn-sm btn-outline-dark m-1">{{ phrase.phrase }}</a>
+                    class="btn btn-sm btn-outline-dark m-1">
+                    {{ phrase.phrase }} ({{ phrase.language|slice:2 }})
+                </a>
             {% endfor %}
             {% endif %}
         </div>
     </main>
+</div>
+
+<script>
+    $(document).ready(function() {
+        $(window).resize(function() {
+            if ($(window).width() < 900) {
+                $("#cancel-button").val("Cancel");
+            } else {
+                $("#cancel-button").val("Cancel > return to menu");
+            }
+        });
+    });
+</script>
 {% endblock content %}
-
-
-{% block footer %}
-
-{% endblock footer %}
