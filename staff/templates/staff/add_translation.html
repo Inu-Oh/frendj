@@ -5,9 +5,12 @@
 <div class="container-fluid w-100">
     <div class="p-3">
     <header class="container-fluid p-3 text-muted">
-        <h1 class="fs-2 ">{{ current_phrase.language }} Phrase:<span class="text-dark">
-            {{ current_phrase.phrase }}</span> (in module: {{ module.name|title }})
+        <h1 class="fs-2 ">{{ current_phrase.language }} Phrase:
+            <span class="text-dark">{{ current_phrase.phrase }}</span>
         </h1>
+        <h5 class="text-muted">
+            <small>Module name: {{ module.name|title }}</small>
+        </h5>
         <p class="fs-5 ps-3">
             Use this form to add translations to this phrase 
         </p>

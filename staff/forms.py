@@ -17,6 +17,9 @@ class CreatePhraseForm(forms.ModelForm):
     class Meta:
         model = Phrase
         fields = ['phrase', 'language']
+        widgets = {
+            'phrase': forms.Textarea(attrs={'cols': 80, 'rows': 3}),
+        }
     
     def __init__(self, *args, **kwargs):
         super(CreatePhraseForm, self).__init__(*args, **kwargs)
@@ -28,6 +31,9 @@ class CreateTranslationForm(forms.ModelForm):
     class Meta:
         model = Translation
         fields = ['translation']
+        widgets = {
+            'translation': forms.Textarea(attrs={'cols': 80, 'rows': 3}),
+        }
     
     def __init__(self, *args, **kwargs):
         super(CreateTranslationForm, self).__init__(*args, **kwargs)
