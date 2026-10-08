@@ -205,7 +205,7 @@ phrase_id,module_name,phrase,phrase_lang,translations
 2063,travel,un hôtel,French,"[""a hotel""]"
 2064,travel,a hotel,English,"[""un hôtel""]"
 2065,prepositions,hors,French,"[""outside""]"
-2066,prepositions,outside,English,"[""hors""]"
+2066,prepositions,outside,English,"[""hors"", ""dehors""]"
 2067,adjectives,horrible,French,"[""horrible""]"
 2068,adjectives,horrible,English,"[""horrible""]"
 2069,adjectives,humain,French,"[""human""]"
