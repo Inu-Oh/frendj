@@ -240,7 +240,7 @@ phrase_id,module_name,phrase,phrase_lang,translations
 2098,food,some oil,English,"[""de l'huile""]"
 2099,nouns,humour,French,"[""humor""]"
 2100,nouns,humor,English,"[""humouur""]"
-2101,seasons,un hiver,French,"[""one winter""]"
+2101,seasons,un hiver,French,"[""one winter"", ""a winter""]"
 2102,seasons,one winter,English,"[""un hiver""]"
 2103,measures,la hauteur,French,"[""the height""]"
 2104,measures,the height,English,"[""la hauteur""]"

@@ -1,7 +1,5 @@
 from django.shortcuts import render
 
-# Create your views here.
-from django.contrib.auth import get_user_model # TODO - check if this is still used
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
@@ -22,7 +20,7 @@ INITIATE_COUNT, UNASSESSED_ACCURACY, UNASSESSED_SCORE, MAX_ERRORS = 1, False, -1
 PLUS_5_XP, PLUS_9_XP, QUIZ_LENGTH, RESET_TEST_COUNT, RESET_SCORE = 5, 9, 12, 1, 0
 
 
-def clear_data_from_session(request, *previous_question_data):
+def clear_data_from_session(request, *previous_question_data) -> None:
     if request.session.get(previous_question_data[0]):
         for data_key in previous_question_data:
             try:
