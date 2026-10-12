@@ -462,13 +462,15 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
             return render(request, self.template_name, context)
 
         # Check that new phrase is unique in its language list
-        phrase_list = [phrase.phrase+phrase.language for phrase in phrases]
+        phrase_list = [p.phrase.lower()+p.language.lower() for p in phrases]
         duplicates, row = [], 1 # first row is heading
         for item in data_list:
             row += 1
             if not item['phrase_id']:
-                if item['phrase']+item['phrase_lang'] in phrase_list:
+                if item['phrase'].lower()+item['phrase_lang'].lower() in phrase_list:
                     duplicates.append({'phrase': item['phrase'], 'row': row})
+                    print("Duplicate phrase:", item['phrase'], 
+                        "Language:", item['phrase_lang'])
                 phrase_list.append(item['phrase'])
         if len(duplicates):
             message += "The CSV file includes phrases that are duplicates: "
@@ -598,65 +600,67 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
 
         # TODO - remove print statements in checks after testing
         # Run all checks to test data and redirect to test page if there are any errors
-        error = False
+        error, error_msg = False, "No errors"
         phrases = Phrase.objects.all()
-        phrase_list = [phrase.phrase+phrase.language for phrase in phrases]
+        phrase_list = [p.phrase.lower()+p.language.lower() for p in phrases]
         for item in data_list:
             # Check that phrase id is entered correctly for updates
             if phrase_id := item["phrase_id"]:
                 try:
                     phrase_id = int(phrase_id)
                 except ValueError:
-                    print("Phrase id is not an int")
                     error = True
+                    print("Phrase id is not an int. Error: ", error)
                     break
                 try:
                     if not phrases.get(id=phrase_id):
-                        print("Phrase ID is wrong")
                         error = True
+                        print("Phrase ID is wrong. Error: ", error)
                         break
                 except:
-                    print("Phrase ID is wrong")
                     error = True
+                    print("Phrase ID is wrong. Error: ", error)
                     break
             # Verify that module name is entered for each phrase and not longer than 24 chars
             if ( not item["module_name"] or (len(item["module_name"]) > 24) ):
-                print("Module name error")
                 error = True
+                print("Module name error. Error: ", error)
                 break
             # Check that phrases ware entered and only contain alphabetic characters
             if not item["phrase"] or match(r'[a-zA-Z ]$', item["phrase"]):
-                print("Phrase blank or misformatted")
                 error = True
+                print("Phrase blank or misformatted. Error: ", error)
                 break
             # Check that new phrase is unique in its language list
             if not item['phrase_id']:
-                if item['phrase']+item['phrase_lang'] in phrase_list:
-                    print("Duplicate phrase")
+                print(item['phrase'].lower()+item['phrase_lang'].lower())
+                if item['phrase'].lower()+item['phrase_lang'].lower() in phrase_list:
                     error = True
+                    print("Duplicate phrase. Error: ", error, item['phrase'], 
+                        "Language: ", item['phrase_lang'])
                     break
             # Verify either English or French for language options
             if item["phrase_lang"] not in ["French", "English"]:
-                print("Language is not French or English")
                 error = True
+                print("Language is not French or English. Error: ", error)
                 break
             # Verify that all row have well formatted translations that include only alphabetic characters
             if item_translations := item["translations"]:
                 if type(item_translations) is not list:
-                    print("Translations are not in a list format")
                     error = True
+                    print("Translations are not in a list format. Error: ", error)
                     break
                 for translation in item_translations:
                     if not translation or match(r'[a-zA-Z ]$', translation):
-                        print("A translation is blank or not alphabetic")
                         error = True
+                        print("A translation is blank or not alphabetic. Error: ", error)
                         break
             else: # if translation list is empty
-                print("Translation list is empty")
                 error = True
+                print("Translation list is empty. Error: ", error)
                 break
         if error:
-            failure_url = reverse_lazy('staff:csv_db_test') 
+            failure_url = reverse_lazy('staff:csv_db_test')
             return redirect(failure_url)
 
 
