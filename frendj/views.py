@@ -237,51 +237,74 @@ class GlossaryView(LoginRequiredMixin, ListView):
 
     def get(self, request):
         profile = Profile.objects.get(user=request.user)
-        phrases = Phrase.objects.all().order_by('phrase')
-        phrase_count = phrases.count()
-        modules = Module.objects.all()
-        translations = Translation.objects.all()
-        phrase_strength_set = UserPhraseStrength.objects.filter(user=request.user)
-        if phrase_strength_set.count() > 0:
-            unlearned_phrase_count = phrase_strength_set.filter(learned=False).count()
-            learned_phrase_count = phrase_strength_set.filter(learned=True).count()
-        else:
-            unlearned_phrase_count, learned_phrase_count = 1, 0
-        progress = int((learned_phrase_count * 100) / (learned_phrase_count + unlearned_phrase_count))
+        user_strengths = list(
+            UserPhraseStrength.objects.filter(user=request.user)
+        )
+        strength_by_phrase_id = {
+            user_strength.phrase_id: user_strength
+            for user_strength in user_strengths
+        }
 
-        # Create list of dicts for faster data access and search response on web page load
-        phrase_data = []
-        strength_data = { 'learned': 0, 'total': 0 }
-        for phrase in phrases:
-            item = {}
-            item["phrase"] = phrase.phrase
-            item["id"] = phrase.id
-            item["language"] = phrase.language
-            item["module"] = phrase.module
-            module = modules.get(name=phrase.module)
-            item["module_id"] = module.id
-            item_translations = translations.filter(phrase=phrase)
-            item["translations"] = []
-            for item_translation in item_translations:
-                item["translations"].append(item_translation.translation)
-            user_strength = phrase_strength_set.get(phrase=phrase)
-            item["learned"] = user_strength.learned
-            item["strength"] = user_strength.strength
-            phrase_data.append(item)
+        learned_phrase_count = sum(
+            1 for user_strength in user_strengths if user_strength.learned
+        )
+        unlearned_phrase_count = len(user_strengths) - learned_phrase_count
 
-            # Calculate overall average user strength
-            if user_strength.learned:
-                strength_data['learned'] += 1
-                strength_data['total'] += user_strength.strength
-        if learned_phrase_count > 0:
-            strength_data['average'] = round(strength_data['total'] / strength_data['learned'])
-        else:
-            strength_data['average'] = None
+        if not user_strengths:
+            unlearned_phrase_count = 1
 
-        # Search result implemention for search bar
+        progress = int(
+            (learned_phrase_count * 100)
+            / (learned_phrase_count + unlearned_phrase_count)
+        )
+
+        phrase_count = Phrase.objects.count()
+        phrases = (
+            Phrase.objects
+            .select_related('module')
+            .prefetch_related('phrase_translations')
+            .order_by('phrase')
+        )
+
         search = request.GET.get("search", False)
         if search:
-            phrase_data = [d for d in phrase_data if search.lower() in d["phrase"].lower() or search in " ".join(d["translations"]).lower()]
+            phrases = phrases.filter(
+                Q(phrase__icontains=search)
+                | Q(phrase_translations__translation__icontains=search)
+            ).distinct()
+
+        phrase_data = []
+        strength_data = {
+            'learned': learned_phrase_count,
+            'total': sum(
+                user_strength.strength
+                for user_strength in user_strengths
+                if user_strength.learned
+            ),
+        }
+
+        for phrase in phrases:
+            user_strength = strength_by_phrase_id[phrase.id]
+            phrase_data.append({
+                "phrase": phrase.phrase,
+                "id": phrase.id,
+                "language": phrase.language,
+                "module": phrase.module,
+                "module_id": phrase.module_id,
+                "translations": [
+                    translation.translation
+                    for translation in phrase.phrase_translations.all()
+                ],
+                "learned": user_strength.learned,
+                "strength": user_strength.strength,
+            })
+
+        if learned_phrase_count > 0:
+            strength_data['average'] = round(
+                strength_data['total'] / learned_phrase_count
+            )
+        else:
+            strength_data['average'] = None
 
         context = {
             'phrase_data': phrase_data,
@@ -318,7 +341,7 @@ class ModulesView(LoginRequiredMixin, ListView):
         modules = Module.objects.annotate(
             phrase_count=Count('phrases_in_module'),
             has_unlearned_phrase=Exists(unlearned_phrases),
-        ).order_by('id')
+        ).order_by('pk')
 
         if msg := request.session.get('module_complete_msg'):
             module_complete_msg = msg
