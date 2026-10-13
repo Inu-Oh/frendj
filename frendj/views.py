@@ -1,6 +1,7 @@
 from django.shortcuts import render
 
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Count, Exists, OuterRef, Q
 from django.shortcuts import redirect, render
 from django.urls import reverse_lazy
 from django.views.generic import TemplateView, UpdateView, View, CreateView, ListView
@@ -293,24 +294,31 @@ class GlossaryView(LoginRequiredMixin, ListView):
         }
         return render(request, self.template_name, context)
 
-
 class ModulesView(LoginRequiredMixin, ListView):
     """Displays all available and completed modules as button links to learning exercises"""
     template_name = 'frendj/modules.html'
 
     def get(self, request):
         profile = Profile.objects.get(user = request.user)
-        phrases = Phrase.objects.all()
         user_phrase_data = UserPhraseStrength.objects.filter(user=request.user)
-        if user_phrase_data.count() > 0:
-            unlearned_phrase_set = user_phrase_data.filter(learned=False)
-            unlearned_phrase_count = unlearned_phrase_set.count()
-            learned_phrase_set= user_phrase_data.filter(learned=True)
-            learned_phrase_count = learned_phrase_set.count()
-        else:
-            unlearned_phrase_count, learned_phrase_count = 1, 0
+        phrase_counts = user_phrase_data.aggregate(
+            unlearned=Count('pk', filter=Q(learned=False)),
+            learned=Count('pk', filter=Q(learned=True)),
+        )
+        unlearned_phrase_count = phrase_counts['unlearned']
+        learned_phrase_count = phrase_counts['learned']
+        if unlearned_phrase_count + learned_phrase_count == 0:
+            unlearned_phrase_count = 1 # Prevents division by 0 error
         progress = int((learned_phrase_count * 100) / (learned_phrase_count + unlearned_phrase_count))
-        modules = Module.objects.all().order_by('name')
+        unlearned_phrases = UserPhraseStrength.objects.filter(
+            user=request.user,
+            learned=False,
+            phrase__module_id=OuterRef('pk'),
+        )
+        modules = Module.objects.annotate(
+            phrase_count=Count('phrases_in_module'),
+            has_unlearned_phrase=Exists(unlearned_phrases),
+        ).order_by('id')
 
         if msg := request.session.get('module_complete_msg'):
             module_complete_msg = msg
@@ -318,27 +326,10 @@ class ModulesView(LoginRequiredMixin, ListView):
         else:
             module_complete_msg = ""
 
-        # Create lists of modules the user has and has not completed
-        open_modules = []
-        closed_modules = []
-        for module in modules:
-            # Get all phrases in module to compare with learned and unlearned phrases
-            phrase_set = phrases.filter(module=module)
-            # If module includes unlearned phrases add to open modules list...
-            for phrase in phrase_set:
-                for unlearned_phrase in unlearned_phrase_set:
-                    if unlearned_phrase.phrase == phrase:
-                        if not module in open_modules:
-                            open_modules.append(module)
-        # ...else add to closed modules list
-        for module in modules:
-            if not module in open_modules:
-                closed_modules.append(module)
-
-        # Search result implemention for search bar
+        # Filter in the database instead of iterating over all modules in Python.
         search = request.GET.get("search", False)
         if search:
-            modules = [d for d in modules if search.lower() in d.name.lower()]
+            modules = modules.filter(name__icontains=search)
 
         context = {
             'profile': profile,
@@ -346,8 +337,6 @@ class ModulesView(LoginRequiredMixin, ListView):
             'learned_phrase_count': learned_phrase_count,
             'progress': progress,
             'modules': modules,
-            'open_modules': open_modules,
-            'closed_modules': closed_modules,
             'module_complete_msg': module_complete_msg,
             'testing_view': None,
             'search': search,

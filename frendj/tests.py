@@ -1,6 +1,7 @@
 from django.db import IntegrityError
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.urls import reverse
 
 from .models import Module, Phrase, Profile, Translation, UserPhraseStrength
 
@@ -302,3 +303,52 @@ class UserPhraseStrengthTestCase(TestCase):
         finnish_phrase = Phrase.objects.get(language="Finnish")
         user_phrase_strength = UserPhraseStrength.objects.get(user=bar, phrase=finnish_phrase)
         self.assertFalse(user_phrase_strength.is_valid_user_phrase_strength())
+
+
+class ModulesViewTestCase(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="modules-user")
+        Profile.objects.create(user=self.user, name="Modules User")
+        self.client.force_login(self.user)
+
+    def test_module_state_and_phrase_counts_are_for_current_user(self):
+        open_module = Module.objects.create(name="Open Module")
+        closed_module = Module.objects.create(name="Closed Module")
+        empty_module = Module.objects.create(name="Empty Module")
+        open_phrase = Phrase.objects.create(
+            language="French", phrase="Bonjour", module=open_module
+        )
+        Phrase.objects.create(language="English", phrase="Hello", module=open_module)
+        closed_phrase = Phrase.objects.create(
+            language="French", phrase="Salut", module=closed_module
+        )
+        UserPhraseStrength.objects.create(user=self.user, phrase=open_phrase)
+        UserPhraseStrength.objects.create(
+            user=self.user, phrase=closed_phrase, learned=True
+        )
+        another_user = User.objects.create_user(username="another-user")
+        UserPhraseStrength.objects.create(user=another_user, phrase=closed_phrase)
+
+        response = self.client.get(reverse("frendj:modules"))
+
+        self.assertEqual(response.status_code, 200)
+        modules = {
+            module.name: module for module in response.context["modules"]
+        }
+        self.assertTrue(modules["Open Module"].has_unlearned_phrase)
+        self.assertEqual(modules["Open Module"].phrase_count, 2)
+        self.assertFalse(modules["Closed Module"].has_unlearned_phrase)
+        self.assertEqual(modules["Closed Module"].phrase_count, 1)
+        self.assertFalse(modules["Empty Module"].has_unlearned_phrase)
+        self.assertEqual(modules["Empty Module"].phrase_count, 0)
+        self.assertEqual(response.context["progress"], 50)
+
+    def test_modules_page_handles_users_without_phrase_strengths(self):
+        module = Module.objects.create(name="No Progress Module")
+
+        response = self.client.get(reverse("frendj:modules"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["progress"], 0)
+        self.assertFalse(response.context["modules"][0].has_unlearned_phrase)

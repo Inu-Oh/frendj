@@ -47,7 +47,6 @@
                 </p>
             </div>
             <div class="col-6">
-                {% if error_msg != "No errors" %}<h1>{{ error_msg }}</h1>{% else %}
                 <p class="fs-5">New phrases to be added {{ new }}<br>
                     Phrases currently in database {{ current_phrase_count }}<br>
                     Phrases that will not be changed: {{ unchanged }} <br>
@@ -68,7 +67,7 @@
                         href="{% url 'staff:manage_content' %}">
                             Nothing to change &nbsp;&raquo;&nbsp; return to menu
                     </a>
-                {% endif %}{% endif %}
+                {% endif %}
             </div>
         </div>
     {% endif %}

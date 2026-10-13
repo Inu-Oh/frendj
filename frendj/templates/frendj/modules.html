@@ -36,24 +36,22 @@
 
                     {% for module in modules %}
 
-                        {% for open_module in open_modules %}{% if open_module == module %}
+                        {% if module.has_unlearned_phrase %}
                             <a href="{% url 'frendj:learn' module.id %}" 
                                 class="btn btn-outline-dark m-2">
                                 {{ module.name|title }} &nbsp;
                                 <small class="badge rounded-pill bg-primary">
-                                    {{ module.phrases_in_module.count }}
+                                    {{ module.phrase_count }}
                                 </small>
                             </a>
-                        {% endif %}{% endfor %}
-
-                        {% for closed_module in closed_modules %}{% if closed_module == module %}
+                        {% else %}
                             <button class="btn btn-light m-2 disabled" aria-disabled="true">
                                 {{ module.name|title }} &nbsp;
                                 <small class="badge rounded-pill bg-secondary">
-                                    {{ module.phrases_in_module.count }}
+                                    {{ module.phrase_count }}
                                 </small>
                             </button>
-                        {% endif %}{% endfor %}
+                        {% endif %}
                             
                     {% endfor %}
                     </div>
