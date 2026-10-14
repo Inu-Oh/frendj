@@ -111,30 +111,22 @@ class Home(LoginRequiredMixin, TemplateView):
             'module_id', 'testing_view']
         clear_data_from_session(request,*session_data_keys)
         # Test count for Practice, Review and Accent Quiz views is set here, incremented
-        # and deleted in respective Quiz view. This circumvents Django bug that fails full to delete session data.
+        # and deleted in respective Quiz view. This circumvents Django bug that fails to delete session data.
         request.session['test_count'] = RESET_TEST_COUNT
         request.session['correct_count'] = RESET_SCORE
         
-        # Get user phrase strength data for progress
-        user_phrase_strength_set = UserPhraseStrength.objects.filter(user=request.user)
-        if user_phrase_strength_set.count() > 0:
-            unlearned_phrase_count = user_phrase_strength_set.filter(learned=False).count()
-            learned_phrase_count = user_phrase_strength_set.filter(learned=True).count()
-            progress = int((learned_phrase_count * 100) / (learned_phrase_count + unlearned_phrase_count))
-        else:
-            progress = 0
-        # Set dummy values in case vocabulary database has not been populated
-        try:
-            unlearned_phrase_count
-            learned_phrase_count
-        except:
-            unlearned_phrase_count = 1
-            learned_phrase_count = 0
+        # Get phrase counts and progress data. Set dummy 
+        phrase_counts = UserPhraseStrength.objects.aggregate(
+            unlearned=Count('pk', filter=Q(learned=False, user=request.user)),
+            learned=Count('pk', filter=Q(learned=True, user=request.user)),
+        )
+        total = phrase_counts['learned'] + phrase_counts['unlearned']
+        progress = round( (phrase_counts['learned'] * 100) / total ) if total > 0 else 0
 
         context = {
             'profile': profile,
-            'unlearned_phrase_count': unlearned_phrase_count,
-            'learned_phrase_count': learned_phrase_count,
+            'unlearned_phrase_count': phrase_counts['unlearned'],
+            'learned_phrase_count': phrase_counts['learned'],
             'progress': progress,
             'quiz_complete_msg': quiz_complete_msg,
             'testing_view': None,
