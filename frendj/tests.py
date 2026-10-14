@@ -1,7 +1,11 @@
+from datetime import timedelta
+from unittest.mock import patch
+
 from django.db import IntegrityError
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
+from django.utils import timezone
 
 from .models import Module, Phrase, Profile, Translation, UserPhraseStrength
 
@@ -352,3 +356,60 @@ class ModulesViewTestCase(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["progress"], 0)
         self.assertFalse(response.context["modules"][0].has_unlearned_phrase)
+
+
+class ResetViewTestCase(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="reset-user")
+        self.other_user = User.objects.create_user(username="other-reset-user")
+        module = Module.objects.create(name="Reset Test Module")
+        self.phrases = [
+            Phrase.objects.create(
+                language="French", phrase=f"Phrase {index}", module=module
+            )
+            for index in range(5)
+        ]
+        self.client.force_login(self.user)
+
+    def test_post_decays_only_eligible_phrases_by_elapsed_whole_days(self):
+        now = timezone.now()
+        decayed = UserPhraseStrength.objects.create(
+            user=self.user, phrase=self.phrases[0], learned=True, strength=28
+        )
+        clamped = UserPhraseStrength.objects.create(
+            user=self.user, phrase=self.phrases[1], learned=True, strength=26
+        )
+        recent = UserPhraseStrength.objects.create(
+            user=self.user, phrase=self.phrases[2], learned=True, strength=80
+        )
+        other_user_phrase = UserPhraseStrength.objects.create(
+            user=self.other_user, phrase=self.phrases[4], learned=True, strength=80
+        )
+        UserPhraseStrength.objects.filter(pk=decayed.pk).update(
+            updated_at=now - timedelta(days=3, hours=12)
+        )
+        UserPhraseStrength.objects.filter(pk=clamped.pk).update(
+            updated_at=now - timedelta(days=30)
+        )
+        UserPhraseStrength.objects.filter(pk=recent.pk).update(
+            updated_at=now - timedelta(hours=12)
+        )
+        UserPhraseStrength.objects.filter(pk=other_user_phrase.pk).update(
+            updated_at=now - timedelta(days=3)
+        )
+
+        with patch("frendj.views.timezone.now", return_value=now):
+            response = self.client.post(reverse("frendj:reset"))
+
+        self.assertEqual(response.status_code, 302)
+        decayed.refresh_from_db()
+        clamped.refresh_from_db()
+        recent.refresh_from_db()
+        other_user_phrase.refresh_from_db()
+        self.assertEqual(decayed.strength, 25)
+        self.assertEqual(decayed.updated_at, now)
+        self.assertEqual(clamped.strength, 0)
+        self.assertEqual(clamped.updated_at, now)
+        self.assertEqual(recent.strength, 80)
+        self.assertEqual(other_user_phrase.strength, 80)

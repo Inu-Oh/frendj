@@ -1,11 +1,11 @@
 from csv import reader, DictWriter
-from datetime import datetime
 from json import loads
 from re import match
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
 from django.urls import reverse_lazy
 from django.views.generic import UpdateView, CreateView, ListView, View
 
@@ -962,8 +962,8 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
             row["translations"] = translation_dict
             export_data.append(row)
 
-        current_time = datetime.now()
-        now = str(current_time)[:17].replace("-", "_").replace(" ", "_").replace(":", "_")
+        current_time = timezone.now()
+        now = current_time.strftime("%Y-%m-%d_%H-%M-%S")
         with open(f"database_export_{now}.csv", "w") as export:
             writer = DictWriter(
                 export, 

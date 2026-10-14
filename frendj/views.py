@@ -1,12 +1,14 @@
 from django.shortcuts import render
 
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Count, Exists, OuterRef, Q
+from django.db.models import Count, Exists, F, OuterRef, Q, Value
+from django.db.models.functions import ExtractDay, Greatest
 from django.shortcuts import redirect, render
+from django.utils import timezone
 from django.urls import reverse_lazy
 from django.views.generic import TemplateView, UpdateView, View, CreateView, ListView
 
-from datetime import datetime
+from datetime import timedelta
 from difflib import SequenceMatcher
 import html
 from random import choice
@@ -146,35 +148,20 @@ class ResetView(LoginRequiredMixin, UpdateView):
 
     # Post view updates user phrase strenght objecs.
     def post(self, request):
-        learned_phrases = UserPhraseStrength.objects.filter(learned=True, user=request.user)
+        now = timezone.now() # prefer this if updated_at is timezone-aware
 
-        # Recalculate phrase strength based on last time seen by user
-        for phrase in learned_phrases:
-            now = datetime.now()
-            day_of_last_reset = datetime(
-                day=phrase.updated_at.day,
-                month=phrase.updated_at.month,
-                year=phrase.updated_at.year,
-                hour=phrase.updated_at.hour,
-                minute=phrase.updated_at.minute
-            )
-            delta = now - day_of_last_reset
-            days_since_reset = delta.days
-            
-            # Function data for review in server log
-            # test_log = f"\nDays since reset for phrase \"{str(phrase.phrase)}\""
-            # test_log += f": {days_since_reset}\n  Now                : {now}"
-            # test_log += f"\n  Time of last reset : {day_of_last_reset}\n"
-            # test_log += f"    strength before recalc : {str(phrase.strength)}"
-            # print(test_log)
-
-            # Weaken strength if phrase wasn't tested for longer than a day
-            if days_since_reset > 0 and phrase.strength > 25:
-                phrase.strength -= days_since_reset
-                phrase.save()
-            
-            # Function data for review in server log - part 2
-            # print(f"    strength after recalc  : {str(phrase.strength)}")
+        UserPhraseStrength.objects.filter(
+            learned=True,
+            user=request.user,
+            updated_at__lt=now - timedelta(days=1),
+            strength__gt=25,
+        ).update(
+            strength=Greatest(
+                Value(0),
+                F('strength') - ExtractDay(now - F('updated_at')),
+            ),
+            updated_at=now
+        )
             
         success_url = 'frendj:home'
         return redirect(success_url)
