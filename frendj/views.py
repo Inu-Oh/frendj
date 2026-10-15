@@ -504,35 +504,43 @@ class PracticeView(LoginRequiredMixin, View):
         # Select question or redirect if not abailable. Add context.
         profile = Profile.objects.get(user=request.user)
         form = TestForm()
-        try:
-            phrase_strength_set = UserPhraseStrength.objects.filter(
-                learned=True, 
-                user=request.user)
-            user_phrase_strength = phrase_strength_set.earliest('strength')
-            phrase = Phrase.objects.get(id=user_phrase_strength.phrase_id)
 
-            context = {
-                'profile': profile,
-                'form': form,
-                'testing_view': request.session['testing_view'],
-                'test_count': f"Card {test_count} of {QUIZ_LENGTH}",
-                'progress': round( ( (test_count - 1) / QUIZ_LENGTH) * 100 ),
-                'user_phrase_strength': user_phrase_strength, # Phrase strength object
-                'phrase': phrase,
-            }
+        user_phrase_strength = (
+            UserPhraseStrength.objects
+                .filter(user=request.user, learned=True)
+                .select_related('phrase')
+                .order_by('strength', 'pk')
+                .first()
+        )
 
-            return render(request, self.template_name, context)
-        except:
-            start_learning_url = reverse_lazy('frendj:modules')
-            return redirect(start_learning_url)
+        if user_phrase_strength is None:
+            return redirect(reverse_lazy('frendj:modules'))
+
+        context = {
+            'profile': profile,
+            'form': form,
+            'testing_view': request.session['testing_view'],
+            'test_count': f"Card {test_count} of {QUIZ_LENGTH}",
+            'progress': round( ( (test_count - 1) / QUIZ_LENGTH) * 100 ),
+            'phrase': user_phrase_strength.phrase,
+        }
+
+        return render(request, self.template_name, context)
     
     def post(self, request):
         profile = Profile.objects.get(user=request.user)
         form = TestForm(request.POST)
-        phrase_strength_set = UserPhraseStrength.objects.filter(learned=True, user=request.user)
-        user_phrase_strength = phrase_strength_set.earliest('strength')
-        phrase = Phrase.objects.get(id=user_phrase_strength.phrase_id)
-        module = Module.objects.get(name=phrase.module)
+
+        user_phrase_strength = (
+            UserPhraseStrength.objects
+                .filter(user=request.user, learned=True)
+                .select_related('phrase')
+                .order_by('strength', 'pk')
+                .first()
+        )
+        
+        phrase = user_phrase_strength.phrase
+        module = user_phrase_strength.phrase.module
         translations = phrase.phrase_translations.all()
 
         if not form.is_valid():
