@@ -3,6 +3,7 @@ from django.shortcuts import render
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count, Exists, F, OuterRef, Q, Value
 from django.db.models.functions import ExtractDay, Greatest
+from django.http import HttpResponseRedirect
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.urls import reverse_lazy
@@ -87,6 +88,17 @@ def feedback(
         return f'<span class="text-success">{"".join(words)}</span>' 
 
 
+def end_quiz(request, quiz_name) -> HttpResponseRedirect:
+    del request.session['test_count']
+    correct_count = request.session['correct_count']
+    msg = f'<h5 class="pb-3">{quiz_name} quiz done!</h5><p>You got '
+    msg += f'{correct_count} out of {QUIZ_LENGTH}.</p><p class="fs-4">Grade: '
+    msg += f'{round( (correct_count / QUIZ_LENGTH) * 100 )}%'
+    request.session['quiz_complete_msg'] = msg
+    finished_exercise_url = reverse_lazy('frendj:home')
+    return redirect(finished_exercise_url)
+
+
 class Home(LoginRequiredMixin, TemplateView):
     """Displays the app home page menu with exercises for users and nav bar"""
 
@@ -150,11 +162,15 @@ class ResetView(LoginRequiredMixin, UpdateView):
     def post(self, request):
         now = timezone.now() # prefer this if updated_at is timezone-aware
 
+        # Below is SQL equivalent to the two queries - TODO learn and delete this note
+        #   SELECT phrase.*, module.* FROM phrase
+        #       INNER JOIN module ON phrase.module_id = module.id
+        #       ORDER BY phrase;
+        #   SELECT * FROM phrase_translations WHERE phrase_id IN (...)
         UserPhraseStrength.objects.filter(
             learned=True,
             user=request.user,
             updated_at__lt=now - timedelta(days=1),
-            strength__gt=25,
         ).update(
             strength=Greatest(
                 Value(0),
@@ -475,17 +491,10 @@ class PracticeView(LoginRequiredMixin, View):
             request.session['testing_view'] != 'frendj:practice'):
             request.session['testing_view'] = 'frendj:practice'
 
-        # End exerice after text count reches set quiz length
+        # End exerice after test count reaches set quiz length
         test_count = request.session.get('test_count')
         if test_count > QUIZ_LENGTH:
-            del request.session['test_count']
-            correct_count = request.session['correct_count']
-            msg = '<h5 class="pb-3">Practice quiz complete!</h5><p>You got '
-            msg += f'{correct_count} out of {QUIZ_LENGTH}.</p><p class="fs-4">Grade: '
-            msg += f'{round( (correct_count / QUIZ_LENGTH) * 100 )}%'
-            request.session['quiz_complete_msg'] = msg
-            finished_exercise_url = reverse_lazy('frendj:home')
-            return redirect(finished_exercise_url)
+            return end_quiz(request, self.__class__.__name__[:-4])
 
         # Clear session data for previously tested phrase if present
         prev_card_sess_keys = ['phrase', 'user_answer', 'response_accuracy', 
@@ -496,7 +505,9 @@ class PracticeView(LoginRequiredMixin, View):
         profile = Profile.objects.get(user=request.user)
         form = TestForm()
         try:
-            phrase_strength_set = UserPhraseStrength.objects.filter(learned=True, user=request.user)
+            phrase_strength_set = UserPhraseStrength.objects.filter(
+                learned=True, 
+                user=request.user)
             user_phrase_strength = phrase_strength_set.earliest('strength')
             phrase = Phrase.objects.get(id=user_phrase_strength.phrase_id)
 
@@ -603,17 +614,10 @@ class ReviewView(LoginRequiredMixin, View):
             request.session['testing_view'] != 'frendj:review'):
             request.session['testing_view'] = 'frendj:review'
 
-        # End exerice after text count reches set quiz length
+        # End exerice after test count reaches set quiz length
         test_count = request.session.get('test_count')
         if test_count > QUIZ_LENGTH:
-            correct_count = request.session['correct_count']
-            msg = '<h5 class="pb-3">Practice quiz complete!</h5><p>You got '
-            msg += f'{correct_count} out of {QUIZ_LENGTH}.</p><p class="fs-4">Grade: '
-            msg += f'{round( (correct_count / QUIZ_LENGTH) * 100 )}%'
-            request.session['quiz_complete_msg'] = msg
-            del request.session['test_count']
-            finished_exercise_url = reverse_lazy('frendj:home')
-            return redirect(finished_exercise_url)
+            return end_quiz(request, self.__class__.__name__[:-4])
             
         # Clear session data for previously tested phrase if present
         prev_card_sess_keys = ['phrase', 'user_answer', 'response_accuracy', 
@@ -731,17 +735,10 @@ class AccentView(LoginRequiredMixin, View):
             request.session['testing_view'] != 'frendj:accent'):
             request.session['testing_view'] = 'frendj:accent'
 
-        # End exerice after text count reches set quiz length
+        # End exerice after test count reaches set quiz length
         test_count = request.session.get('test_count')
         if test_count > QUIZ_LENGTH:
-            correct_count = request.session['correct_count']
-            msg = '<h5 class="pb-3">Practice quiz complete!</h5><p>You got '
-            msg += f'{correct_count} out of {QUIZ_LENGTH}.</p><p class="fs-4">Grade: '
-            msg += f'{round( (correct_count / QUIZ_LENGTH) * 100 )}%'
-            request.session['quiz_complete_msg'] = msg
-            del request.session['test_count']
-            finished_exercise_url = reverse_lazy('frendj:home')
-            return redirect(finished_exercise_url)
+            return end_quiz(request, self.__class__.__name__[:-4])
 
         # Clear session data for previously tested phrase if present
         prev_card_sess_keys = ['phrase', 'user_phrase_strength_id', 'user_answer',
@@ -918,5 +915,4 @@ class FeedbackView(LoginRequiredMixin, View):
             'progress': progress,
             'xp_reward': xp_reward
         }
-        # Retrieve and pass on test count for the current exercise session
         return render(request, self.template_name, context)
