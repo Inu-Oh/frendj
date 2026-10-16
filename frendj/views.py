@@ -33,7 +33,7 @@ def clear_data_from_session(request, *previous_question_data) -> None:
                 print(f'Exception Did not clear {data_key} from session.')
 
 
-def eval_tranlation(user_answer: str, correct_translation: str) -> tuple[float, int]:
+def eval_translation(user_answer: str, correct_translation: str) -> tuple[float, int]:
     """
     Evaluates the test score for a translation entered by the user
     in comparison to correct translation.
@@ -440,10 +440,10 @@ class LearnView(LoginRequiredMixin, View):
         score = UNASSESSED_SCORE
         errors = MAX_ERRORS
 
-        # Find translation to match user's answer. Evaluate score and set feedback.       # Find a translation that best matches the user's answer. Evaluate score & errors
+        # Clean user's answer and escape any html entities before testing. Initiate score and error counts.
         for tr in translations:
             cleaned_test_phrase = unidecode(tr.translation.lower())
-            curr_score, errors = eval_tranlation(cleaned_answer, cleaned_test_phrase)
+            curr_score, errors = eval_translation(cleaned_answer, cleaned_test_phrase)
             if curr_score > score:
                 score = curr_score
                 matched_translation = tr.translation
@@ -503,8 +503,6 @@ class PracticeView(LoginRequiredMixin, View):
 
         # Select question or redirect if not abailable. Add context.
         profile = Profile.objects.get(user=request.user)
-        form = TestForm()
-
         user_phrase_strength = (
             UserPhraseStrength.objects
                 .filter(user=request.user, learned=True)
@@ -512,10 +510,10 @@ class PracticeView(LoginRequiredMixin, View):
                 .order_by('strength', 'pk')
                 .first()
         )
-
         if user_phrase_strength is None:
             return redirect(reverse_lazy('frendj:modules'))
-
+        
+        form = TestForm()
         context = {
             'profile': profile,
             'form': form,
@@ -524,13 +522,10 @@ class PracticeView(LoginRequiredMixin, View):
             'progress': round( ( (test_count - 1) / QUIZ_LENGTH) * 100 ),
             'phrase': user_phrase_strength.phrase,
         }
-
         return render(request, self.template_name, context)
     
     def post(self, request):
         profile = Profile.objects.get(user=request.user)
-        form = TestForm(request.POST)
-
         user_phrase_strength = (
             UserPhraseStrength.objects
                 .filter(user=request.user, learned=True)
@@ -538,11 +533,9 @@ class PracticeView(LoginRequiredMixin, View):
                 .order_by('strength', 'pk')
                 .first()
         )
-        
-        phrase = user_phrase_strength.phrase
-        module = user_phrase_strength.phrase.module
-        translations = phrase.phrase_translations.all()
+        translations = user_phrase_strength.phrase.phrase_translations.all()
 
+        form = TestForm(request.POST)
         if not form.is_valid():
             context = {
                 'profile': profile,
@@ -551,22 +544,20 @@ class PracticeView(LoginRequiredMixin, View):
                 'test_count': f"Card {request.session['test_count']} of {QUIZ_LENGTH}",
                 'progress': round( ( (request.session['test_count'] - 1) / QUIZ_LENGTH) * 100 ),
                 'user_phrase_strength': user_phrase_strength, # Phrase strength object
-                'phrase': phrase,
+                'phrase': user_phrase_strength.phrase,
             }
             return render(request, self.template_name, context)
 
-        # Clean user's answer and escape any html entities before testing
+        # Clean user's answer and escape any html entities before testing. Initiate score and error counts.
         user_answer = html.escape(form.cleaned_data['answer'].strip())
         cleaned_answer = unidecode(user_answer.lower())
-
-        # Initiate score and error counts.
         score = UNASSESSED_SCORE
         errors = MAX_ERRORS
 
-        # Find translation to match user's answer. Evaluate score and set feedback.       # Find a translation that best matches the user's answer and evaluate score and errors
+        # Find translation to best match user's answer. Evaluate score and set feedback.       
         for tr in translations:
             cleaned_test_phrase = unidecode(tr.translation.lower())
-            curr_score, errors = eval_tranlation(cleaned_answer, cleaned_test_phrase)
+            curr_score, errors = eval_translation(cleaned_answer, cleaned_test_phrase)
             if curr_score > score:
                 score = curr_score
                 matched_translation = tr.translation
@@ -596,10 +587,10 @@ class PracticeView(LoginRequiredMixin, View):
 
         # Prepare data for feedback view
         request.session['phrase'] = user_phrase_strength.phrase.phrase
-        request.session['module_id'] = module.id
+        request.session['module_id'] = user_phrase_strength.phrase.module.id
         request.session['user_answer'] = user_answer # Used as backup in case of error with HTML
         request.session['response_accuracy'] = response_accuracy
-        request.session['phrase_language'] = phrase.language
+        request.session['phrase_language'] = user_phrase_strength.phrase.language
         request.session['feedback_html'] = feedback_html
         request.session['xp_reward'] = PLUS_5_XP
         # Increment test count once quiz is submitted
@@ -634,36 +625,40 @@ class ReviewView(LoginRequiredMixin, View):
 
         # Select question or redirect if not abailable. Add context.
         profile = Profile.objects.get(user=request.user)
+        user_phrase_strength = (
+            UserPhraseStrength.objects
+                .filter(user=request.user, learned=True)
+                .select_related('phrase')
+                .order_by('updated_at', 'pk')
+                .first()
+        )
+        if user_phrase_strength is None:
+            return redirect(reverse_lazy('frendj:modules'))
+
         form = TestForm()
-        try:
-            phrase_strength_set = UserPhraseStrength.objects.filter(learned=True, user=request.user)
-            user_phrase_strength = phrase_strength_set.earliest('updated_at')
-            phrase = Phrase.objects.get(id=user_phrase_strength.phrase_id)
-
-            context = {
-                'profile': profile,
-                'form': form,
-                'testing_view': request.session['testing_view'],
-                'test_count': f"Card {test_count} of {QUIZ_LENGTH}",
-                'progress': round( ( (test_count - 1) / QUIZ_LENGTH) * 100 ),
-                'user_phrase_strength': user_phrase_strength,
-                'phrase': phrase,
-            }
-
-            return render(request, self.template_name, context)
-        except:
-            start_learning_url = reverse_lazy('frendj:modules')
-            return redirect(start_learning_url)
+        context = {
+            'profile': profile,
+            'form': form,
+            'testing_view': request.session['testing_view'],
+            'test_count': f"Card {test_count} of {QUIZ_LENGTH}",
+            'progress': round( ( (test_count - 1) / QUIZ_LENGTH) * 100 ),
+            'user_phrase_strength': user_phrase_strength,
+            'phrase': user_phrase_strength.phrase,
+        }
+        return render(request, self.template_name, context)
     
     def post(self, request):
         profile = Profile.objects.get(user=request.user)
-        form = TestForm(request.POST)
-        phrase_strength_set = UserPhraseStrength.objects.filter(learned=True, user=request.user)
-        user_phrase_strength = phrase_strength_set.earliest('updated_at')
-        phrase = Phrase.objects.get(id=user_phrase_strength.phrase_id)
-        module = Module.objects.get(name=phrase.module)
-        translations = phrase.phrase_translations.all()
+        user_phrase_strength = (
+            UserPhraseStrength.objects
+                .filter(user=request.user, learned=True)
+                .select_related('phrase')
+                .order_by('updated_at', 'pk')
+                .first()
+        )
+        translations = user_phrase_strength.phrase.phrase_translations.all()
 
+        form = TestForm(request.POST)
         if not form.is_valid():
             context = {
                 'profile': profile,
@@ -672,22 +667,20 @@ class ReviewView(LoginRequiredMixin, View):
                 'test_count': f"Card {request.session['test_count']} of {QUIZ_LENGTH}",
                 'progress': round( ( (request.session['test_count'] - 1) / QUIZ_LENGTH) * 100 ),
                 'user_phrase_strength': user_phrase_strength, # Phrase strength object
-                'phrase': phrase,
+                'phrase': user_phrase_strength.phrase,
             }
             return render(request, self.template_name, context)
 
-        # Clean user's answer and escape any html entities before testing
+        # Clean user's answer and escape any html entities before testing. Initiate score and error counts.
         user_answer = html.escape(form.cleaned_data['answer'].strip())
         cleaned_answer = unidecode(user_answer.lower())
-
-        # Initiate score and error counts
         score = UNASSESSED_SCORE
         errors = MAX_ERRORS
 
         # Find translation to match user's answer. Evaluate score and set feedback.
         for tr in translations:
             cleaned_test_phrase = unidecode(tr.translation.lower())
-            curr_score, errors = eval_tranlation(cleaned_answer, cleaned_test_phrase)
+            curr_score, errors = eval_translation(cleaned_answer, cleaned_test_phrase)
             if curr_score > score:
                 score = curr_score
                 matched_translation = tr.translation
@@ -717,10 +710,10 @@ class ReviewView(LoginRequiredMixin, View):
 
         # Prepare data for feedback view
         request.session['phrase'] = user_phrase_strength.phrase.phrase
-        request.session['module_id'] = module.id
+        request.session['module_id'] = user_phrase_strength.phrase.module.id
         request.session['user_answer'] = user_answer # Used as backup in csae of error with HTML
         request.session['response_accuracy'] = response_accuracy
-        request.session['phrase_language'] = phrase.language
+        request.session['phrase_language'] = user_phrase_strength.phrase.language
         request.session['feedback_html'] = feedback_html
         request.session['xp_reward'] = PLUS_5_XP
         # Increment test count once quiz is submitted
@@ -802,18 +795,15 @@ class AccentView(LoginRequiredMixin, View):
             }
             return render(request, self.template_name, context)
 
-        # Clean user's answer, escape any html entities, and remove punctuation, before testing
+        # Clean user's answer, escape any html entities and remove punctuation. Initiate score evaluation.
         user_answer = html.escape(form.cleaned_data['answer'].strip())
         test_user_ans = user_answer.translate(str.maketrans("", "", string.punctuation))
-
-        # Increment user view of current phrase. Set variable to support feedback.
-        user_phrase_strength.views += 1
         highest_score = UNASSESSED_SCORE
         
         # Find translation that exactly matches answer. Evaluate score, add points and set feedback.
         for translation in translations:
             test_translation = translation.translation.translate(str.maketrans("", "", string.punctuation))
-            score, errors = eval_tranlation(test_user_ans.lower(), test_translation.lower())
+            score, errors = eval_translation(test_user_ans.lower(), test_translation.lower())
             if test_user_ans == test_translation:
                 user_phrase_strength.correct += 1
                 profile.xp += PLUS_9_XP
@@ -830,7 +820,8 @@ class AccentView(LoginRequiredMixin, View):
         except NameError:
             feedback_html = feedback(user_answer, translations[0].translation, errors, score)
       
-        # Adjust and save the user's phrase score
+        # Adjust and save the user's phrase views and score
+        user_phrase_strength.views += 1
         user_phrase_strength.strength = (
             (user_phrase_strength.views - 
                 (user_phrase_strength.views - user_phrase_strength.correct)
