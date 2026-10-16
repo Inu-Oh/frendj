@@ -466,6 +466,7 @@ class LearnView(LoginRequiredMixin, View):
 
         # Prepare data for feedback view
         request.session['phrase'] = user_phrase_strength.phrase.phrase
+        request.session['phrase_id'] = user_phrase_strength.phrase.id
         request.session['user_answer'] = user_answer # Backup in csae of error with HTML
         request.session['response_accuracy'] = response_accuracy
         request.session['testing_view'] = 'frendj:learn'
@@ -587,6 +588,7 @@ class PracticeView(LoginRequiredMixin, View):
 
         # Prepare data for feedback view
         request.session['phrase'] = user_phrase_strength.phrase.phrase
+        request.session['phrase_id'] = user_phrase_strength.phrase.id
         request.session['module_id'] = user_phrase_strength.phrase.module.id
         request.session['user_answer'] = user_answer # Used as backup in case of error with HTML
         request.session['response_accuracy'] = response_accuracy
@@ -710,6 +712,7 @@ class ReviewView(LoginRequiredMixin, View):
 
         # Prepare data for feedback view
         request.session['phrase'] = user_phrase_strength.phrase.phrase
+        request.session['phrase_id'] = user_phrase_strength.phrase.id
         request.session['module_id'] = user_phrase_strength.phrase.module.id
         request.session['user_answer'] = user_answer # Used as backup in csae of error with HTML
         request.session['response_accuracy'] = response_accuracy
@@ -830,10 +833,11 @@ class AccentView(LoginRequiredMixin, View):
         user_phrase_strength.save()
 
         # Prepare data for feedback view
-        request.session['phrase'] = user_phrase_strength.phrase.phrase
+        request.session['phrase'] = user_phrase_strength.phrase.phrase # TODO - review and remove ?
         request.session['user_answer'] = user_answer  # Used as backup in csae of error with HTML
         request.session['response_accuracy'] = response_accuracy
-        request.session['module_id'] = user_phrase_strength.phrase.module.id
+        request.session['phrase_id'] = user_phrase_strength.phrase.id
+        request.session['module_id'] = user_phrase_strength.phrase.module.id # TODO - review and remove ?
         request.session['phrase_language'] = user_phrase_strength.phrase.language
         request.session['feedback_html'] = feedback_html
         request.session['xp_reward'] = PLUS_9_XP
@@ -852,63 +856,59 @@ class FeedbackView(LoginRequiredMixin, View):
 
     def get(self, request):
         profile = Profile.objects.get(user=request.user)
-        phrase_str = request.session.get('phrase')
-        module = Module.objects.get(id=request.session.get('module_id'))
-        phrase = Phrase.objects.get(
-            phrase=phrase_str,
-            language=request.session.get('phrase_language'),
-            module=module
-        )
+        phrase = Phrase.objects.get(id=request.session['phrase_id'])
         
         user_answer = request.session.get('user_answer')
         response_accuracy = request.session.get('response_accuracy')
-        translations = Translation.objects.filter(phrase=phrase)
         testing_view = request.session.get('testing_view')
         feedback_html = request.session.get('feedback_html')
         xp_reward = request.session.get('xp_reward')
 
         # Module progress - for LearnView only
         if testing_view == "frendj:learn":
-            module_phrases = Phrase.objects.filter(module=module)
-            module_phrase_count = module_phrases.count()
-            user_learned_count = UserPhraseStrength.objects.filter(
-                learned=True,
-                user=request.user,
-                phrase__in=module_phrases
-            ).count()
-            progress = round( (user_learned_count / module_phrase_count) * 100 )
+            stats = (
+                Phrase.objects
+                    .filter(module_id=phrase.module_id)
+                    .aggregate(
+                        module_phrase_count=Count('pk', distinct=True),
+                        learned_count=Count(
+                            'userphrasestrength__pk',
+                            filter=Q(
+                                userphrasestrength__user=request.user,
+                                userphrasestrength__learned=True,
+                            ),
+                            distinct=True
+                        ),
+                )
+            )
+            total = stats['module_phrase_count']
+            learned_count = stats['learned_count']
+            unlearned_count = total - learned_count
+            progress = round( (learned_count / total) * 100 ) if total > 0 else 0
         else:
             progress = round( ( (request.session['test_count'] - 1) / QUIZ_LENGTH ) * 100 )
+            learned_count, unlearned_count = None, None
 
         # Feedback phrases
         if response_accuracy:
-            correct = [
-                "Amazing", "Awesome", "Great", "Yes!", "You got it", "Wow",
-                "You're good at this", "You're great!", "You're awesome"
-                ]
+            correct = ["Amazing", "Awesome", "Great", "Yes!", "You got it", "Wow",
+                "You're good at this", "You're great!", "You're awesome"]
             result = choice(correct)
         else:
-            wrong = [
-                "Better luck next time", "Keep practicing", "Keep at it",
-                "You'll get it next time", "It'll stick eventually"
-                ]
+            wrong = ["Better luck next time", "Keep practicing", "Keep at it",
+                "You'll get it next time", "It'll stick eventually"]
             result = choice(wrong)
-
-        learned_count = round(
-                module.phrases_in_module.count() * ( progress / 100 )
-            )
-        unlearned_count = module.phrases_in_module.count() - learned_count
 
         context = {
             'profile': profile,
             'user_answer': user_answer, # Used as backup in case of error with HTML
             'response_accuracy': response_accuracy,
             'phrase': phrase,
-            'translations': translations,
+            'translations': phrase.phrase_translations.all(),
             'test_count': f"Card {request.session['test_count'] - 1} of {QUIZ_LENGTH}",
             'testing_view': testing_view,
             'result': result,
-            'module': module,
+            'module': phrase.module,
             'learned_count': learned_count,
             'unlearned_count': unlearned_count,
             'feedback_html': feedback_html,
