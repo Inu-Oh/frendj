@@ -750,38 +750,39 @@ class AccentView(LoginRequiredMixin, View):
         form = TestForm()
 
         # Select question or redirect if not abailable. Add context.
-        try: 
-            phrase_strength_set = UserPhraseStrength.objects.filter(learned=True, user=request.user)
-            user_phrase_strength = choice(phrase_strength_set)
-            phrase = Phrase.objects.get(id=user_phrase_strength.phrase_id)
+        user_phrase_strength = (
+            UserPhraseStrength.objects
+                .filter(user=request.user, learned=True)
+                .order_by('?')
+                .first()
+        )
 
-            # Save phrase data to session to be access in POST
-            request.session['user_phrase_strength_id'] = user_phrase_strength.id
+        if user_phrase_strength is None:
+            return redirect(reverse_lazy('frendj:modules'))
+        
+        # Save phrase data to session to be access in POST
+        request.session['user_phrase_strength_id'] = user_phrase_strength.id
 
-            context = {
-                'profile': profile,
-                'form': form,
-                'testing_view': request.session['testing_view'],
-                'test_count': f"Card {test_count} of {QUIZ_LENGTH}",
-                'user_phrase_strength': user_phrase_strength, # Phrase strength object
-                'progress': round( ( (test_count - 1) / QUIZ_LENGTH) * 100 ),
-                'phrase': phrase,
-            }
+        context = {
+            'profile': profile,
+            'form': form,
+            'testing_view': request.session['testing_view'],
+            'test_count': f"Card {test_count} of {QUIZ_LENGTH}",
+            'user_phrase_strength': user_phrase_strength, # Phrase strength object
+            'progress': round( ( (test_count - 1) / QUIZ_LENGTH) * 100 ),
+            'phrase': user_phrase_strength.phrase,
+        }
 
-            return render(request, self.template_name, context)
-        except:
-            start_learning_url = reverse_lazy('frendj:modules')
-            return redirect(start_learning_url)
+        return render(request, self.template_name, context)
     
     def post(self, request):
         profile = Profile.objects.get(user=request.user)
         form = TestForm(request.POST)
-        user_phrase_strength = UserPhraseStrength.objects.get(
-                    id=request.session.get('user_phrase_strength_id')
-                )
-        phrase = Phrase.objects.get(id=user_phrase_strength.phrase_id)
-        module = Module.objects.get(name=phrase.module)
-        translations = phrase.phrase_translations.all()
+        user_phrase_strength = (
+            UserPhraseStrength.objects
+                .get(id=request.session.get('user_phrase_strength_id'))
+        )
+        translations = user_phrase_strength.phrase.phrase_translations.all()
 
         if not form.is_valid():
             context = {
@@ -791,7 +792,7 @@ class AccentView(LoginRequiredMixin, View):
                 'test_count': f"Card {request.session['test_count']} of {QUIZ_LENGTH}",
                 'user_phrase_strength': user_phrase_strength, # Phrase strength object
                 'progress': round( ( (request.session['test_count'] - 1) / QUIZ_LENGTH) * 100 ),
-                'phrase': phrase,
+                'phrase': user_phrase_strength.phrase,
             }
             return render(request, self.template_name, context)
 
@@ -832,8 +833,8 @@ class AccentView(LoginRequiredMixin, View):
         request.session['phrase'] = user_phrase_strength.phrase.phrase
         request.session['user_answer'] = user_answer  # Used as backup in csae of error with HTML
         request.session['response_accuracy'] = response_accuracy
-        request.session['module_id'] = module.id
-        request.session['phrase_language'] = phrase.language
+        request.session['module_id'] = user_phrase_strength.phrase.module.id
+        request.session['phrase_language'] = user_phrase_strength.phrase.language
         request.session['feedback_html'] = feedback_html
         request.session['xp_reward'] = PLUS_9_XP
         # Increment test count once quiz is submitted
