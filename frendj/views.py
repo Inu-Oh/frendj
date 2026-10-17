@@ -465,13 +465,10 @@ class LearnView(LoginRequiredMixin, View):
         user_phrase_strength.save()
 
         # Prepare data for feedback view
-        request.session['phrase'] = user_phrase_strength.phrase.phrase
         request.session['phrase_id'] = user_phrase_strength.phrase.id
         request.session['user_answer'] = user_answer # Backup in csae of error with HTML
         request.session['response_accuracy'] = response_accuracy
         request.session['testing_view'] = 'frendj:learn'
-        request.session['module_id'] = pk
-        request.session['phrase_language'] = phrase.language
         request.session['feedback_html'] = feedback_html
         request.session['xp_reward'] = PLUS_5_XP
 
@@ -587,12 +584,9 @@ class PracticeView(LoginRequiredMixin, View):
         user_phrase_strength.save()
 
         # Prepare data for feedback view
-        request.session['phrase'] = user_phrase_strength.phrase.phrase
         request.session['phrase_id'] = user_phrase_strength.phrase.id
-        request.session['module_id'] = user_phrase_strength.phrase.module.id
         request.session['user_answer'] = user_answer # Used as backup in case of error with HTML
         request.session['response_accuracy'] = response_accuracy
-        request.session['phrase_language'] = user_phrase_strength.phrase.language
         request.session['feedback_html'] = feedback_html
         request.session['xp_reward'] = PLUS_5_XP
         # Increment test count once quiz is submitted
@@ -711,12 +705,9 @@ class ReviewView(LoginRequiredMixin, View):
         user_phrase_strength.save()
 
         # Prepare data for feedback view
-        request.session['phrase'] = user_phrase_strength.phrase.phrase
         request.session['phrase_id'] = user_phrase_strength.phrase.id
-        request.session['module_id'] = user_phrase_strength.phrase.module.id
         request.session['user_answer'] = user_answer # Used as backup in csae of error with HTML
         request.session['response_accuracy'] = response_accuracy
-        request.session['phrase_language'] = user_phrase_strength.phrase.language
         request.session['feedback_html'] = feedback_html
         request.session['xp_reward'] = PLUS_5_XP
         # Increment test count once quiz is submitted
@@ -833,12 +824,9 @@ class AccentView(LoginRequiredMixin, View):
         user_phrase_strength.save()
 
         # Prepare data for feedback view
-        request.session['phrase'] = user_phrase_strength.phrase.phrase # TODO - review and remove ?
+        request.session['phrase_id'] = user_phrase_strength.phrase.id
         request.session['user_answer'] = user_answer  # Used as backup in csae of error with HTML
         request.session['response_accuracy'] = response_accuracy
-        request.session['phrase_id'] = user_phrase_strength.phrase.id
-        request.session['module_id'] = user_phrase_strength.phrase.module.id # TODO - review and remove ?
-        request.session['phrase_language'] = user_phrase_strength.phrase.language
         request.session['feedback_html'] = feedback_html
         request.session['xp_reward'] = PLUS_9_XP
         # Increment test count once quiz is submitted
@@ -855,16 +843,15 @@ class FeedbackView(LoginRequiredMixin, View):
     template_name = 'frendj/feedback.html'
 
     def get(self, request):
+        testing_view = request.session.get('testing_view')
         profile = Profile.objects.get(user=request.user)
         phrase = Phrase.objects.get(id=request.session['phrase_id'])
-        
         user_answer = request.session.get('user_answer')
         response_accuracy = request.session.get('response_accuracy')
-        testing_view = request.session.get('testing_view')
         feedback_html = request.session.get('feedback_html')
         xp_reward = request.session.get('xp_reward')
 
-        # Module progress - for LearnView only
+        # Module progress: one for LearnView only, one for all the others
         if testing_view == "frendj:learn":
             stats = (
                 Phrase.objects
@@ -889,7 +876,7 @@ class FeedbackView(LoginRequiredMixin, View):
             progress = round( ( (request.session['test_count'] - 1) / QUIZ_LENGTH ) * 100 )
             learned_count, unlearned_count = None, None
 
-        # Feedback phrases
+        # Choose one result phrase for feedback
         if response_accuracy:
             correct = ["Amazing", "Awesome", "Great", "Yes!", "You got it", "Wow",
                 "You're good at this", "You're great!", "You're awesome"]
