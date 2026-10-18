@@ -28,31 +28,53 @@
                             </form>
                         </section>
                     </div>
+                    <div class="container">
+                        <div class="row pt-2">
+                            <div class="col-8 text-start fw-bold">Subject</div>
+                            <div class="col-2 text-end fw-bold">Cards</div>
+                            <div class="col-2 text-end fw-bold">Progress</div>
+                        </div>
+                    </div>
                 </div>
 
 
                 <div id="module-list" class="card-body bg-white rounded-bottom">
                     <div class="card-text">
-
                     {% for module in modules %}
-
                         {% if module.has_unlearned_phrase %}
                             <a href="{% url 'frendj:learn' module.id %}" 
-                                class="btn btn-outline-dark m-2">
-                                {{ module.name|title }} &nbsp;
-                                <small class="badge rounded-pill bg-primary">
-                                    {{ module.phrase_count }}
-                                </small>
+                                class="btn btn-outline-dark my-2 w-100">
+                                <div class="container">
+                                    <div class="row">
+                                        <div class="col-8 text-start">
+                                            {{ module.name|title }}
+                                        </div>
+                                        <div class="col-2 text-end">
+                                            {{ module.phrase_count }}
+                                        </div>
+                                        <div class="col-2 text-end">
+                                            {% if module.learned_phrase_count > 0 %}
+                                                {{ module.module_progress }}%
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
                             </a>
                         {% else %}
-                            <button class="btn btn-light m-2 disabled" aria-disabled="true">
-                                {{ module.name|title }} &nbsp;
-                                <small class="badge rounded-pill bg-secondary">
-                                    {{ module.phrase_count }}
-                                </small>
+                            <button class="btn btn-light my-2 disabled" aria-disabled="true">
+                                <div class="container">
+                                    <div class="row">
+                                        <div class="col-8 text-start">
+                                            {{ module.name|title }}
+                                        </div>
+                                        <div class="col-2 text-end">
+                                            {{ module.phrase_count }}
+                                        </div>
+                                        <div class="col-2 text-end">100%</div>
+                                    </div>
+                                </div>
                             </button>
                         {% endif %}
-                            
                     {% endfor %}
                     </div>
                 </div>

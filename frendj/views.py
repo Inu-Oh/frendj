@@ -1,8 +1,8 @@
 from django.shortcuts import render
 
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Count, Exists, F, OuterRef, Q, Value
-from django.db.models.functions import ExtractDay, Greatest
+from django.db.models import Count, Exists, ExpressionWrapper, F, IntegerField, OuterRef, Q, Value
+from django.db.models.functions import ExtractDay, Greatest, NullIf
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -162,11 +162,6 @@ class ResetView(LoginRequiredMixin, UpdateView):
     def post(self, request):
         now = timezone.now() # prefer this if updated_at is timezone-aware
 
-        # Below is SQL equivalent to the two queries - TODO learn and delete this note
-        #   SELECT phrase.*, module.* FROM phrase
-        #       INNER JOIN module ON phrase.module_id = module.id
-        #       ORDER BY phrase;
-        #   SELECT * FROM phrase_translations WHERE phrase_id IN (...)
         UserPhraseStrength.objects.filter(
             learned=True,
             user=request.user,
@@ -317,7 +312,19 @@ class ModulesView(LoginRequiredMixin, ListView):
             phrase__module_id=OuterRef('pk'),
         )
         modules = Module.objects.annotate(
-            phrase_count=Count('phrases_in_module'),
+            phrase_count=Count('phrases_in_module', distinct=True),
+            learned_phrase_count=Count(
+                'phrases_in_module__userphrasestrength',
+                filter=Q(
+                    phrases_in_module__userphrasestrength__user=request.user,
+                    phrases_in_module__userphrasestrength__learned=True,
+                ),
+                distinct=True,
+            ),
+            module_progress=ExpressionWrapper(
+                F('learned_phrase_count') * 100 / NullIf(F('phrase_count'), Value(0)),
+                output_field=IntegerField(),
+            ),
             has_unlearned_phrase=Exists(unlearned_phrases),
         ).order_by('name')
 
@@ -583,13 +590,12 @@ class PracticeView(LoginRequiredMixin, View):
             ) * 100) / user_phrase_strength.views
         user_phrase_strength.save()
 
-        # Prepare data for feedback view
+        # Prepare data for feedback view and increment test count
         request.session['phrase_id'] = user_phrase_strength.phrase.id
         request.session['user_answer'] = user_answer # Used as backup in case of error with HTML
         request.session['response_accuracy'] = response_accuracy
         request.session['feedback_html'] = feedback_html
         request.session['xp_reward'] = PLUS_5_XP
-        # Increment test count once quiz is submitted
         request.session['test_count'] += 1
 
         # Redirect to feedback if post succeeds
@@ -704,13 +710,12 @@ class ReviewView(LoginRequiredMixin, View):
             ) * 100) / user_phrase_strength.views
         user_phrase_strength.save()
 
-        # Prepare data for feedback view
+        # Prepare data for feedback view and increment test count
         request.session['phrase_id'] = user_phrase_strength.phrase.id
         request.session['user_answer'] = user_answer # Used as backup in csae of error with HTML
         request.session['response_accuracy'] = response_accuracy
         request.session['feedback_html'] = feedback_html
         request.session['xp_reward'] = PLUS_5_XP
-        # Increment test count once quiz is submitted
         request.session['test_count'] += 1
 
         # Redirect to feedback if post succeeds
@@ -823,13 +828,12 @@ class AccentView(LoginRequiredMixin, View):
             ) * 100) / user_phrase_strength.views
         user_phrase_strength.save()
 
-        # Prepare data for feedback view
+        # Prepare data for feedback view and increment test count
         request.session['phrase_id'] = user_phrase_strength.phrase.id
         request.session['user_answer'] = user_answer  # Used as backup in csae of error with HTML
         request.session['response_accuracy'] = response_accuracy
         request.session['feedback_html'] = feedback_html
         request.session['xp_reward'] = PLUS_9_XP
-        # Increment test count once quiz is submitted
         request.session['test_count'] += 1
 
         # Redirect to feedback if post succeeds
