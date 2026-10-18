@@ -37,7 +37,6 @@
                     </div>
                 </div>
 
-
                 <div id="module-list" class="card-body bg-white rounded-bottom">
                     <div class="card-text">
                     {% for module in modules %}
@@ -49,28 +48,36 @@
                                         <div class="col-8 text-start">
                                             {{ module.name|title }}
                                         </div>
-                                        <div class="col-2 text-end">
+                                        <div class="col-2 text-end text-primary fw-bold">
                                             {{ module.phrase_count }}
                                         </div>
-                                        <div class="col-2 text-end">
-                                            {% if module.learned_phrase_count > 0 %}
-                                                {{ module.module_progress }}%
-                                            {% endif %}
-                                        </div>
+                                        {% if module.learned_phrase_count > 0 %}
+                                        {% if module.module_progress > 5 %}
+                                            <div class="col-2 text-end text-success fw-bold">
+                                        {% else %}
+                                            <div class="col-2 text-end text-secondary">
+                                        {% endif %}    
+                                            {{ module.module_progress }}%
+                                            </div>
+                                         {% endif %}
                                     </div>
                                 </div>
                             </a>
                         {% else %}
-                            <button class="btn btn-light my-2 disabled" aria-disabled="true">
+                            <button class="btn btn-light my-2 disabled w-100" aria-disabled="true">
                                 <div class="container">
                                     <div class="row">
-                                        <div class="col-8 text-start">
+                                        <div class="col-8 text-start text-muted">
                                             {{ module.name|title }}
                                         </div>
-                                        <div class="col-2 text-end">
+                                        <div class="col-2 text-end text-muted">
                                             {{ module.phrase_count }}
                                         </div>
-                                        <div class="col-2 text-end">100%</div>
+                                        <div class="col-2 text-end text-muted">
+                                            <small class="badge bg-success">
+                                                100%
+                                            </small>
+                                        </div>
                                     </div>
                                 </div>
                             </button>
