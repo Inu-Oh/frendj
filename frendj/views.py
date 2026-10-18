@@ -471,13 +471,15 @@ class LearnView(LoginRequiredMixin, View):
             response_accuracy = False
         user_phrase_strength.save()
 
-        # Prepare data for feedback view
-        request.session['phrase_id'] = user_phrase_strength.phrase.id
-        request.session['user_answer'] = user_answer # Backup in csae of error with HTML
-        request.session['response_accuracy'] = response_accuracy
-        request.session['testing_view'] = 'frendj:learn'
-        request.session['feedback_html'] = feedback_html
-        request.session['xp_reward'] = PLUS_5_XP
+        # Store data in session for feedback view
+        request.session.update({
+            'phrase_id': user_phrase_strength.phrase.id,
+            'user_answer': user_answer, # Used as backup in csae of error with HTML
+            'response_accuracy': response_accuracy,
+            'testing_view': 'frendj:learn',
+            'feedback_html': feedback_html,
+            'xp_reward': PLUS_5_XP,
+        })
 
         # Redirect to feedback if post succeeds
         success_url = reverse_lazy('frendj:feedback')
@@ -590,13 +592,16 @@ class PracticeView(LoginRequiredMixin, View):
             ) * 100) / user_phrase_strength.views
         user_phrase_strength.save()
 
-        # Prepare data for feedback view and increment test count
-        request.session['phrase_id'] = user_phrase_strength.phrase.id
-        request.session['user_answer'] = user_answer # Used as backup in case of error with HTML
-        request.session['response_accuracy'] = response_accuracy
-        request.session['feedback_html'] = feedback_html
-        request.session['xp_reward'] = PLUS_5_XP
-        request.session['test_count'] += 1
+        # Store data in session for feedback view and increment test count
+        test_count = request.session['test_count'] + 1
+        request.session.update({
+            'phrase_id': user_phrase_strength.phrase.id,
+            'user_answer': user_answer, # Used as backup in csae of error with HTML
+            'response_accuracy': response_accuracy,
+            'feedback_html': feedback_html,
+            'xp_reward': PLUS_5_XP,
+            'test_count': test_count,
+        })
 
         # Redirect to feedback if post succeeds
         success_url = reverse_lazy('frendj:feedback')
@@ -710,13 +715,16 @@ class ReviewView(LoginRequiredMixin, View):
             ) * 100) / user_phrase_strength.views
         user_phrase_strength.save()
 
-        # Prepare data for feedback view and increment test count
-        request.session['phrase_id'] = user_phrase_strength.phrase.id
-        request.session['user_answer'] = user_answer # Used as backup in csae of error with HTML
-        request.session['response_accuracy'] = response_accuracy
-        request.session['feedback_html'] = feedback_html
-        request.session['xp_reward'] = PLUS_5_XP
-        request.session['test_count'] += 1
+        # Store data in session for feedback view and increment test count
+        test_count = request.session['test_count'] + 1
+        request.session.update({
+            'phrase_id': user_phrase_strength.phrase.id,
+            'user_answer': user_answer, # Used as backup in csae of error with HTML
+            'response_accuracy': response_accuracy,
+            'feedback_html': feedback_html,
+            'xp_reward': PLUS_5_XP,
+            'test_count': test_count,
+        })
 
         # Redirect to feedback if post succeeds
         success_url = reverse_lazy('frendj:feedback')
@@ -828,13 +836,16 @@ class AccentView(LoginRequiredMixin, View):
             ) * 100) / user_phrase_strength.views
         user_phrase_strength.save()
 
-        # Prepare data for feedback view and increment test count
-        request.session['phrase_id'] = user_phrase_strength.phrase.id
-        request.session['user_answer'] = user_answer  # Used as backup in csae of error with HTML
-        request.session['response_accuracy'] = response_accuracy
-        request.session['feedback_html'] = feedback_html
-        request.session['xp_reward'] = PLUS_9_XP
-        request.session['test_count'] += 1
+        # Store data in session for feedback view and increment test count
+        test_count = request.session['test_count'] + 1
+        request.session.update({
+            'phrase_id': user_phrase_strength.phrase.id,
+            'user_answer': user_answer, # Used as backup in csae of error with HTML
+            'response_accuracy': response_accuracy,
+            'feedback_html': feedback_html,
+            'xp_reward': PLUS_9_XP,
+            'test_count': test_count,
+        })
 
         # Redirect to feedback if post succeeds
         success_url = reverse_lazy('frendj:feedback')
