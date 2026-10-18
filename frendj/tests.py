@@ -2,6 +2,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from django.db import IntegrityError
+from django.db.utils import DataError
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -56,11 +57,10 @@ class ModuleTestCase(TestCase):
         # Create modules
         Module.objects.create(name="Good Module")
         Module.objects.create(name="No")
-        Module.objects.create(name="I am too long to be a module name")
     
     def test_module_count(self):
         modules = Module.objects.all()
-        self.assertEqual(modules.count(), 3)
+        self.assertEqual(modules.count(), 2)
 
     def test_valid_module(self):
         good_module = Module.objects.get(name="Good Module")
@@ -69,16 +69,16 @@ class ModuleTestCase(TestCase):
     def test_invalid_module_too_short(self):
         short_name_module = Module.objects.get(name="No")
         self.assertFalse(short_name_module.is_valid_module())
-    
-    def test_invalid_module_too_long(self):
-        long_name_module = Module.objects.get(name="I am too long to be a module name")
-        self.assertFalse(long_name_module.is_valid_module())
 
     def test_unique_module_name(self):
-
-        # Attempt to create a duplicate module name and raise exception
         with self.assertRaises(IntegrityError):
             Module.objects.create(name="Good Module")
+
+    def test_raise_error_module_name_too_long(self):
+        Module.objects.get(name="Good Module")
+
+        with self.assertRaises(DataError):
+            Module.objects.create(name="I am too long to be a module name")
 
 
 class PhraseTestCase(TestCase):
@@ -95,11 +95,6 @@ class PhraseTestCase(TestCase):
         Phrase.objects.create(language="Finnish", phrase="Moi", module=good_module)
         Phrase.objects.create(language="French", phrase="Coucou", module=bad_module)
         Phrase.objects.create(language="English", phrase="", module=good_module)
-        Phrase.objects.create(
-            language="French",
-            phrase="Je suis une histoire trop longue pour cette appli. Je ne conforme pas aux regles qui sont inscrit dans les modeles de cet appli de Django. Il faut écrire combien lettre de plus. Je ne sais plus quoi d'écrire. Aide moi ma muse de finire cette phrase trop longue et banale.",
-            module=good_module
-        )
 
     def test_english_phrase_count(self):
         english_phrases = Phrase.objects.filter(language="English")
@@ -107,11 +102,11 @@ class PhraseTestCase(TestCase):
     
     def test_french_phrase_count(self):
         french_phrase = Phrase.objects.filter(language="French")
-        self.assertEqual(french_phrase.count(), 3)
+        self.assertEqual(french_phrase.count(), 2)
     
     def test_module_phrase_count(self):
         module = Module.objects.get(name="Good Module")
-        self.assertEqual(module.phrases_in_module.count(), 5)
+        self.assertEqual(module.phrases_in_module.count(), 4)
 
     def test_valid_phrase(self):
         phrase = Phrase.objects.get(phrase="Salut")
@@ -120,10 +115,6 @@ class PhraseTestCase(TestCase):
     def test_invalid_phrase_too_short(self):
         short_phrase = Phrase.objects.get(phrase="")
         self.assertFalse(short_phrase.is_valid_phrase())
-    
-    def test_invalid_phrase_too_long(self):
-        long_phrase = Phrase.objects.get(phrase="Je suis une histoire trop longue pour cette appli. Je ne conforme pas aux regles qui sont inscrit dans les modeles de cet appli de Django. Il faut écrire combien lettre de plus. Je ne sais plus quoi d'écrire. Aide moi ma muse de finire cette phrase trop longue et banale.")
-        self.assertFalse(long_phrase.is_valid_phrase())
 
     def test_invalid_phrase_langauge(self):
         finnish_phrase = Phrase.objects.get(phrase="Moi")
@@ -135,10 +126,18 @@ class PhraseTestCase(TestCase):
     
     def test_unique_phrase_per_langauge_constraint(self):
         good_module = Module.objects.get(name="Good Module")
-
-        # Attempt to make a duplicate phrase and raise exception
         with self.assertRaises(IntegrityError) as context:
             Phrase.objects.create(language="French", phrase="Salut", module=good_module)
+
+    def test_raise_error_phrase_too_long(self):
+        good_module = Module.objects.get(name="Good Module")
+
+        with self.assertRaises(DataError):
+            Phrase.objects.create(
+            language="French",
+            phrase="Je suis une histoire trop longue pour cette appli. Je ne conforme pas aux regles qui sont inscrit dans les modeles de cet appli de Django. Il faut écrire combien lettre de plus. Je ne sais plus quoi d'écrire. Aide moi ma muse de finire cette phrase trop longue et banale.",
+            module=good_module
+        )
 
 
 class TranslationTestCase(TestCase):
