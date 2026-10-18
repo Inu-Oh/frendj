@@ -524,10 +524,10 @@ class PracticeView(LoginRequiredMixin, View):
         context = {
             'profile': profile,
             'form': form,
+            'phrase': user_phrase_strength.phrase,
             'testing_view': request.session['testing_view'],
             'test_count': f"Card {test_count} of {QUIZ_LENGTH}",
             'progress': round( ( (test_count - 1) / QUIZ_LENGTH) * 100 ),
-            'phrase': user_phrase_strength.phrase,
         }
         return render(request, self.template_name, context)
     
@@ -547,11 +547,11 @@ class PracticeView(LoginRequiredMixin, View):
             context = {
                 'profile': profile,
                 'form': form,
+                'user_phrase_strength': user_phrase_strength,
+                'phrase': user_phrase_strength.phrase,
                 'testing_view': request.session['testing_view'],
                 'test_count': f"Card {request.session['test_count']} of {QUIZ_LENGTH}",
                 'progress': round( ( (request.session['test_count'] - 1) / QUIZ_LENGTH) * 100 ),
-                'user_phrase_strength': user_phrase_strength, # Phrase strength object
-                'phrase': user_phrase_strength.phrase,
             }
             return render(request, self.template_name, context)
 
@@ -646,11 +646,11 @@ class ReviewView(LoginRequiredMixin, View):
         context = {
             'profile': profile,
             'form': form,
+            'user_phrase_strength': user_phrase_strength,
+            'phrase': user_phrase_strength.phrase,
             'testing_view': request.session['testing_view'],
             'test_count': f"Card {test_count} of {QUIZ_LENGTH}",
             'progress': round( ( (test_count - 1) / QUIZ_LENGTH) * 100 ),
-            'user_phrase_strength': user_phrase_strength,
-            'phrase': user_phrase_strength.phrase,
         }
         return render(request, self.template_name, context)
     
@@ -670,11 +670,11 @@ class ReviewView(LoginRequiredMixin, View):
             context = {
                 'profile': profile,
                 'form': form,
+                'user_phrase_strength': user_phrase_strength,
+                'phrase': user_phrase_strength.phrase,
                 'testing_view': request.session['testing_view'],
                 'test_count': f"Card {request.session['test_count']} of {QUIZ_LENGTH}",
                 'progress': round( ( (request.session['test_count'] - 1) / QUIZ_LENGTH) * 100 ),
-                'user_phrase_strength': user_phrase_strength, # Phrase strength object
-                'phrase': user_phrase_strength.phrase,
             }
             return render(request, self.template_name, context)
 
@@ -773,11 +773,11 @@ class AccentView(LoginRequiredMixin, View):
         context = {
             'profile': profile,
             'form': form,
+            'user_phrase_strength': user_phrase_strength,
+            'phrase': user_phrase_strength.phrase,
             'testing_view': request.session['testing_view'],
             'test_count': f"Card {test_count} of {QUIZ_LENGTH}",
-            'user_phrase_strength': user_phrase_strength, # Phrase strength object
             'progress': round( ( (test_count - 1) / QUIZ_LENGTH) * 100 ),
-            'phrase': user_phrase_strength.phrase,
         }
 
         return render(request, self.template_name, context)
@@ -795,11 +795,11 @@ class AccentView(LoginRequiredMixin, View):
             context = {
                 'profile': profile,
                 'form': form,
+                'user_phrase_strength': user_phrase_strength,
+                'phrase': user_phrase_strength.phrase,
                 'testing_view': request.session['testing_view'],
                 'test_count': f"Card {request.session['test_count']} of {QUIZ_LENGTH}",
-                'user_phrase_strength': user_phrase_strength, # Phrase strength object
                 'progress': round( ( (request.session['test_count'] - 1) / QUIZ_LENGTH) * 100 ),
-                'phrase': user_phrase_strength.phrase,
             }
             return render(request, self.template_name, context)
 
@@ -866,7 +866,7 @@ class FeedbackView(LoginRequiredMixin, View):
         feedback_html = request.session.get('feedback_html')
         xp_reward = request.session.get('xp_reward')
 
-        # Module progress: one for LearnView only, one for all the others
+        # Module progress for LearnView only; quiz progress for all the others
         if testing_view == "frendj:learn":
             stats = (
                 Phrase.objects
@@ -888,8 +888,8 @@ class FeedbackView(LoginRequiredMixin, View):
             unlearned_count = total - learned_count
             progress = round( (learned_count / total) * 100 ) if total > 0 else 0
         else:
-            progress = round( ( (request.session['test_count'] - 1) / QUIZ_LENGTH ) * 100 )
             learned_count, unlearned_count = None, None
+            progress = round( ( (request.session['test_count'] - 1) / QUIZ_LENGTH ) * 100 )
 
         # Choose one result phrase for feedback
         if response_accuracy:
@@ -902,19 +902,19 @@ class FeedbackView(LoginRequiredMixin, View):
             result = choice(wrong)
 
         context = {
+            'testing_view': testing_view,
             'profile': profile,
+            'phrase': phrase,
+            'module': phrase.module,
             'user_answer': user_answer, # Used as backup in case of error with HTML
             'response_accuracy': response_accuracy,
-            'phrase': phrase,
+            'feedback_html': feedback_html,
+            'xp_reward': xp_reward,
             'translations': phrase.phrase_translations.all(),
             'test_count': f"Card {request.session['test_count'] - 1} of {QUIZ_LENGTH}",
-            'testing_view': testing_view,
-            'result': result,
-            'module': phrase.module,
             'learned_count': learned_count,
             'unlearned_count': unlearned_count,
-            'feedback_html': feedback_html,
             'progress': progress,
-            'xp_reward': xp_reward
+            'result': result,
         }
         return render(request, self.template_name, context)
