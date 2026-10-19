@@ -47,11 +47,9 @@
     <div class="container">
         <div class="row pb-2">
             <div class="col-4 text-end fw-bold">Phrase</div>
-            <div class="col-5 text-start fw-bold">Translation</div>
-            <div class="col-3 text-end fw-bold">
-                {% if strength_data.learned|length < phrase_count %}Link to Course / {% endif %}
-                Strength
-            </div>
+            <div class="col-4 text-start fw-bold">Translation</div>
+            <div class="col-2 text-start fw-bold">Module</div>
+            <div class="col-2 text-end fw-bold">Score</div>
         </div>
     </div>
     
@@ -62,15 +60,28 @@
         </div>
         {% else %}
         
-        {% if phrase_data %}{% for phrase in phrase_data %}{% if phrase.language == "French" %}
+        {% if phrase_data %}
+        {% for phrase in phrase_data %}
+        {% if phrase.language == "French" %}
         <div class="row pb-3">
             <div class="col-4 text-end">{{ phrase.phrase }} </div>
-            <div class="col-5 text-start">
+            <div class="col-4 text-start">
                 {% for translation in phrase.translations %}
                     &raquo; {{ translation }} <br>
                 {% endfor %}
             </div>
-            <div class="col-3 text-end">
+            <div class="col-2 text-start">
+                {% if phrase.learned %}
+                    <small>{{ phrase.module }}</small>
+                {% else %}
+                    <small><a href="{% url 'frendj:learn' phrase.module_id %}"
+                        class="text-decoration-none link-style">
+                        {{ phrase.module }}
+                    </a></small>
+                {% endif %}
+            </div>
+            <div class="col-2 text-end">
+                <small>
                 {% if phrase.learned %}
                     {% if phrase.strength > 90 %}Excellent
                     {% elif phrase.strength > 80 %}Amazing
@@ -78,9 +89,9 @@
                     {% elif phrase.strength > 40 %}Good
                     {% else %}Keep at it {% endif %}
                 {% else %}
-                    <a href="{% url 'frendj:learn' phrase.module_id %}"
-                        class="text-decoration-none link-style">Learn in Module: {{ phrase.module }}</a>
+                    
                 {% endif %}
+                </small>
             </div>
         </div>
         {% endif %}{% endfor %}{% endif %}   
