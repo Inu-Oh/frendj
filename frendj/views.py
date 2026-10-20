@@ -33,17 +33,17 @@ def clear_data_from_session(request, *previous_question_data) -> None:
                 print(f'Exception Did not clear {data_key} from session.')
 
 
-def eval_translation(user_answer: str, correct_translation: str) -> tuple[float, int]:
+def eval_translation(raw_answer: str, correct_translation: str) -> tuple[float, int]:
     """
     Evaluates the test score for a translation entered by the user
     in comparison to correct translation.
     """
 
-    user_answer = user_answer.replace("&#x27;", "'").replace("&#45;", "-").replace("&#44;", ",")
-    if user_answer == correct_translation:
+    raw_answer = raw_answer.replace("&#x27;", "'").replace("&#45;", "-").replace("&#44;", ",")
+    if raw_answer == correct_translation:
         translation_score, error_count = 100, 0
     else:
-        matcher = SequenceMatcher(None, a=user_answer, b=correct_translation)
+        matcher = SequenceMatcher(None, a=raw_answer, b=correct_translation)
         translation_score = matcher.ratio() * 100
 
         error_count = 0
@@ -53,12 +53,12 @@ def eval_translation(user_answer: str, correct_translation: str) -> tuple[float,
             if tag == 'insert':
                 error_count += (j2 - j1) # Length of segment in correct translation
     # TODO - Remove print and dev notes after correcting errors
-    print(translation_score, error_count, user_answer, correct_translation)
+    print(translation_score, error_count, raw_answer, correct_translation)
     return translation_score, error_count
 
 
 def feedback(
-        user_answer: str, 
+        raw_answer: str, 
         correct_translation: str, 
         error_count: int, 
         translation_score: float
@@ -70,21 +70,21 @@ def feedback(
 
     # Return no feedback for correct answers
     if translation_score >= 100 and error_count <= 0:
-        return f'<span class="text-success">{user_answer}</span>' 
+        return f'<span class="text-success">{raw_answer}</span>' 
     # Full feedback string is red if too many errors
     elif translation_score < 75 or error_count >= 4: 
-        return f'<span class="text-danger">{user_answer}</span>' 
+        return f'<span class="text-danger">{raw_answer}</span>' 
     else: # Provide more detailed feedback if errors are minimal
-        user_answer = user_answer.replace("&#x27;", "'").replace("&#45;", "-").replace("&#44;", ",")
-        matcher = SequenceMatcher(None, a=user_answer, b=correct_translation)
+        raw_answer = raw_answer.replace("&#x27;", "'").replace("&#45;", "-").replace("&#44;", ",")
+        matcher = SequenceMatcher(None, a=raw_answer, b=correct_translation)
         words = []
         for tag, i1, i2, j1, j2 in matcher.get_opcodes():
             if tag == 'replace':
-                words.append(f'<span class="text-danger">{user_answer[i1:i2]}</span>')
+                words.append(f'<span class="text-danger">{raw_answer[i1:i2]}</span>')
             elif tag == 'insert':
                 words.append(f'<span class="text-danger">{correct_translation[j1:j2]}</span>')
             elif tag == 'equal':
-                words.append(user_answer[i1:i2])
+                words.append(raw_answer[i1:i2])
         return f'<span class="text-success">{"".join(words)}</span>' 
 
 
@@ -119,7 +119,7 @@ class Home(LoginRequiredMixin, TemplateView):
             quiz_complete_msg = ""
         
         # Delete session data from exercises if it exists
-        session_data_keys = ['phrase', 'user_phrase_strength_id', 'user_answer',
+        session_data_keys = ['phrase', 'user_phrase_strength_id', 'raw_answer',
             'response_accuracy', 'phrase_language', 'feedback_html', 'xp_reward',
             'module_id', 'testing_view']
         clear_data_from_session(request,*session_data_keys)
@@ -358,7 +358,7 @@ class LearnView(LoginRequiredMixin, View):
 
     def get(self, request, pk):
         # Clear session data for previously tested phrase if present
-        prev_card_sess_keys = ['phrase', 'user_phrase_strength_id', 'user_answer',
+        prev_card_sess_keys = ['phrase', 'user_phrase_strength_id', 'raw_answer',
             'response_accuracy', 'phrase_language', 'feedback_html', 'xp_reward']
         clear_data_from_session(request,*prev_card_sess_keys)
 
@@ -428,38 +428,40 @@ class LearnView(LoginRequiredMixin, View):
             context = {
                 'profile': profile,
                 'form': form,
+                'user_phrase_strength': user_phrase_strength,
                 'phrase': phrase,
-                'user_phrase_strength': user_phrase_strength, # Phrase strength object
             }
             return render(request, self.template_name, context)
 
-        # Clean user's answer and escape any html entities before testing
-        user_answer = html.escape(form.cleaned_data['answer'].strip())
-        cleaned_answer = unidecode(user_answer.lower())
+        # Set up all data needed to evaluate the user answer
+        raw_answer = form.cleaned_data['answer'].strip()
+        normalized_answer = unidecode(raw_answer.casefold())
+        best_translation = None
+        best_score = UNASSESSED_SCORE
+        least_errors = MAX_ERRORS
 
-        # Track phrase as learned by the user. Initiate view, score and error counts
-        user_phrase_strength.learned = True
-        user_phrase_strength.views = INITIATE_COUNT
-        score = UNASSESSED_SCORE
-        errors = MAX_ERRORS
-
-        # Clean user's answer and escape any html entities before testing. Initiate score and error counts.
-        for tr in translations:
-            cleaned_test_phrase = unidecode(tr.translation.lower())
-            curr_score, errors = eval_translation(cleaned_answer, cleaned_test_phrase)
-            if curr_score > score:
-                score = curr_score
-                matched_translation = tr.translation
-                feedback_html = feedback(user_answer, matched_translation, errors, score)
-        try: 
-            feedback_html
-        except NameError:
-            feedback_html = feedback(user_answer, translations[0].translation, errors, score)
+        # Evaluate the user's answer agains all possible translations and generate feedback.
+        for translation in translations:
+            cleaned_test_phrase = unidecode(translation.translation.casefold())
+            current_score, current_errors = eval_translation(
+                normalized_answer, cleaned_test_phrase
+            )
+            if current_score > best_score:
+                best_score = current_score
+                least_errors = current_errors
+                matched_translation = translation.translation
+            
+        if best_translation is None:
+            best_translation = translations[0]
+        
+        feedback_html = feedback(raw_answer, matched_translation, least_errors, best_score)
 
         # If evaluation passes 90%, add points to user profile and raise user phrase strength
-        if score >= 90:
+        user_phrase_strength.learned = True
+        user_phrase_strength.views = INITIATE_COUNT
+        if best_score >= 90:
             user_phrase_strength.correct += 1
-            user_phrase_strength.strength = round(score)
+            user_phrase_strength.strength = round(best_score)
             profile.xp += PLUS_5_XP
             profile.save()
             response_accuracy = True
@@ -470,7 +472,7 @@ class LearnView(LoginRequiredMixin, View):
         # Store data in session for feedback view
         request.session.update({
             'phrase_id': user_phrase_strength.phrase.id,
-            'user_answer': user_answer, # Used as backup in csae of error with HTML
+            'raw_answer': raw_answer, # Used as backup in csae of error with HTML
             'response_accuracy': response_accuracy,
             'testing_view': 'frendj:learn',
             'feedback_html': feedback_html,
@@ -499,7 +501,7 @@ class PracticeView(LoginRequiredMixin, View):
             return end_quiz(request, self.__class__.__name__[:-4])
 
         # Clear session data for previously tested phrase if present
-        prev_card_sess_keys = ['phrase', 'user_answer', 'response_accuracy', 
+        prev_card_sess_keys = ['phrase', 'raw_answer', 'response_accuracy', 
                                 'phrase_language', 'feedback_html', 'xp_reward']
         clear_data_from_session(request,*prev_card_sess_keys)
 
@@ -551,23 +553,23 @@ class PracticeView(LoginRequiredMixin, View):
             return render(request, self.template_name, context)
 
         # Clean user's answer and escape any html entities before testing. Initiate score and error counts.
-        user_answer = html.escape(form.cleaned_data['answer'].strip())
-        cleaned_answer = unidecode(user_answer.lower())
+        raw_answer = html.escape(form.cleaned_data['answer'].strip())
+        normalized_answer = unidecode(raw_answer.lower())
         score = UNASSESSED_SCORE
         errors = MAX_ERRORS
 
         # Find translation to best match user's answer. Evaluate score and set feedback.       
         for tr in translations:
             cleaned_test_phrase = unidecode(tr.translation.lower())
-            curr_score, errors = eval_translation(cleaned_answer, cleaned_test_phrase)
+            curr_score, errors = eval_translation(normalized_answer, cleaned_test_phrase)
             if curr_score > score:
                 score = curr_score
                 matched_translation = tr.translation
-                feedback_html = feedback(user_answer, matched_translation, errors, score)
+                feedback_html = feedback(raw_answer, matched_translation, errors, score)
         try: 
             feedback_html
         except NameError:
-            feedback_html = feedback(user_answer, translations[0].translation, errors, score)
+            feedback_html = feedback(raw_answer, translations[0].translation, errors, score)
 
         # If evaluation passes mark, add points to user profile
         if score >= 90:
@@ -591,7 +593,7 @@ class PracticeView(LoginRequiredMixin, View):
         test_count = request.session['test_count'] + 1
         request.session.update({
             'phrase_id': user_phrase_strength.phrase.id,
-            'user_answer': user_answer, # Used as backup in csae of error with HTML
+            'raw_answer': raw_answer, # Used as backup in csae of error with HTML
             'response_accuracy': response_accuracy,
             'feedback_html': feedback_html,
             'xp_reward': PLUS_5_XP,
@@ -620,7 +622,7 @@ class ReviewView(LoginRequiredMixin, View):
             return end_quiz(request, self.__class__.__name__[:-4])
             
         # Clear session data for previously tested phrase if present
-        prev_card_sess_keys = ['phrase', 'user_answer', 'response_accuracy', 
+        prev_card_sess_keys = ['phrase', 'raw_answer', 'response_accuracy', 
                                 'phrase_language', 'feedback_html', 'xp_reward']
         clear_data_from_session(request,*prev_card_sess_keys)
 
@@ -673,23 +675,23 @@ class ReviewView(LoginRequiredMixin, View):
             return render(request, self.template_name, context)
 
         # Clean user's answer and escape any html entities before testing. Initiate score and error counts.
-        user_answer = html.escape(form.cleaned_data['answer'].strip())
-        cleaned_answer = unidecode(user_answer.lower())
+        raw_answer = html.escape(form.cleaned_data['answer'].strip())
+        normalized_answer = unidecode(raw_answer.lower())
         score = UNASSESSED_SCORE
         errors = MAX_ERRORS
 
         # Find translation to match user's answer. Evaluate score and set feedback.
         for tr in translations:
             cleaned_test_phrase = unidecode(tr.translation.lower())
-            curr_score, errors = eval_translation(cleaned_answer, cleaned_test_phrase)
+            curr_score, errors = eval_translation(normalized_answer, cleaned_test_phrase)
             if curr_score > score:
                 score = curr_score
                 matched_translation = tr.translation
-                feedback_html = feedback(user_answer, matched_translation, errors, score)
+                feedback_html = feedback(raw_answer, matched_translation, errors, score)
         try: 
             feedback_html
         except NameError:
-            feedback_html = feedback(user_answer, translations[0].translation, errors, score)
+            feedback_html = feedback(raw_answer, translations[0].translation, errors, score)
 
         # If evaluation passes mark, add points to user profile and raise user phrase strength
         if score >= 90:
@@ -713,7 +715,7 @@ class ReviewView(LoginRequiredMixin, View):
         test_count = request.session['test_count'] + 1
         request.session.update({
             'phrase_id': user_phrase_strength.phrase.id,
-            'user_answer': user_answer, # Used as backup in csae of error with HTML
+            'raw_answer': raw_answer, # Used as backup in csae of error with HTML
             'response_accuracy': response_accuracy,
             'feedback_html': feedback_html,
             'xp_reward': PLUS_5_XP,
@@ -742,7 +744,7 @@ class AccentView(LoginRequiredMixin, View):
             return end_quiz(request, self.__class__.__name__[:-4])
 
         # Clear session data for previously tested phrase if present
-        prev_card_sess_keys = ['phrase', 'user_phrase_strength_id', 'user_answer',
+        prev_card_sess_keys = ['phrase', 'user_phrase_strength_id', 'raw_answer',
             'response_accuracy', 'phrase_language', 'feedback_html', 'xp_reward']
         clear_data_from_session(request,*prev_card_sess_keys)
 
@@ -797,8 +799,8 @@ class AccentView(LoginRequiredMixin, View):
             return render(request, self.template_name, context)
 
         # Clean user's answer, escape any html entities and remove punctuation. Initiate score evaluation.
-        user_answer = html.escape(form.cleaned_data['answer'].strip())
-        test_user_ans = user_answer.translate(str.maketrans("", "", string.punctuation))
+        raw_answer = html.escape(form.cleaned_data['answer'].strip())
+        test_user_ans = raw_answer.translate(str.maketrans("", "", string.punctuation))
         highest_score = UNASSESSED_SCORE
         
         # Find translation that exactly matches answer. Evaluate score, add points and set feedback.
@@ -811,7 +813,7 @@ class AccentView(LoginRequiredMixin, View):
                 profile.save()
                 response_accuracy = True
                 matched_translation = translation.translation
-                feedback_html = feedback(user_answer, matched_translation, errors, score)
+                feedback_html = feedback(raw_answer, matched_translation, errors, score)
                 request.session['correct_count'] += 1
                 break
             elif score > highest_score:
@@ -819,7 +821,7 @@ class AccentView(LoginRequiredMixin, View):
         try: 
             feedback_html
         except NameError:
-            feedback_html = feedback(user_answer, translations[0].translation, errors, score)
+            feedback_html = feedback(raw_answer, translations[0].translation, errors, score)
       
         # Adjust and save the user's phrase views and score
         user_phrase_strength.views += 1
@@ -833,7 +835,7 @@ class AccentView(LoginRequiredMixin, View):
         test_count = request.session['test_count'] + 1
         request.session.update({
             'phrase_id': user_phrase_strength.phrase.id,
-            'user_answer': user_answer, # Used as backup in csae of error with HTML
+            'raw_answer': raw_answer, # Used as backup in csae of error with HTML
             'response_accuracy': response_accuracy,
             'feedback_html': feedback_html,
             'xp_reward': PLUS_9_XP,
@@ -853,7 +855,7 @@ class FeedbackView(LoginRequiredMixin, View):
         testing_view = request.session.get('testing_view')
         profile = Profile.objects.get(user=request.user)
         phrase = Phrase.objects.get(id=request.session['phrase_id'])
-        user_answer = request.session.get('user_answer')
+        raw_answer = request.session.get('raw_answer')
         response_accuracy = request.session.get('response_accuracy')
         feedback_html = request.session.get('feedback_html')
         xp_reward = request.session.get('xp_reward')
@@ -898,7 +900,7 @@ class FeedbackView(LoginRequiredMixin, View):
             'profile': profile,
             'phrase': phrase,
             'module': phrase.module,
-            'user_answer': user_answer, # Used as backup in case of error with HTML
+            'raw_answer': raw_answer, # Used as backup in case of error with HTML
             'response_accuracy': response_accuracy,
             'feedback_html': feedback_html,
             'xp_reward': xp_reward,
