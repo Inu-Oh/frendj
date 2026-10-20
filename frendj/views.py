@@ -95,8 +95,7 @@ def end_quiz(request, quiz_name) -> HttpResponseRedirect:
     msg += f'{correct_count} out of {QUIZ_LENGTH}.</p><p class="fs-4">Grade: '
     msg += f'{round( (correct_count / QUIZ_LENGTH) * 100 )}%'
     request.session['quiz_complete_msg'] = msg
-    finished_exercise_url = reverse_lazy('frendj:home')
-    return redirect(finished_exercise_url)
+    return redirect(reverse_lazy('frendj:home'))
 
 
 class Home(LoginRequiredMixin, TemplateView):
@@ -126,8 +125,10 @@ class Home(LoginRequiredMixin, TemplateView):
         clear_data_from_session(request,*session_data_keys)
         # Test count for Practice, Review and Accent Quiz views is set here, incremented
         # and deleted in respective Quiz view. This circumvents Django bug that fails to delete session data.
-        request.session['test_count'] = RESET_TEST_COUNT
-        request.session['correct_count'] = RESET_SCORE
+        request.session.update({
+            'test_count': RESET_TEST_COUNT,
+            'correct_count': RESET_SCORE
+        })
         
         # Get phrase counts and progress data. Set dummy 
         phrase_counts = UserPhraseStrength.objects.aggregate(
@@ -173,9 +174,7 @@ class ResetView(LoginRequiredMixin, UpdateView):
             ),
             updated_at=now
         )
-            
-        success_url = 'frendj:home'
-        return redirect(success_url)
+        return redirect('frendj:home')
 
 
 class ProfileCreateView(LoginRequiredMixin, CreateView):
@@ -213,9 +212,7 @@ class ProfileCreateView(LoginRequiredMixin, CreateView):
                 views = 0,
                 correct = 0
             )
-
-        success_url = reverse_lazy('frendj:home')
-        return redirect(success_url)
+        return redirect(reverse_lazy('frendj:home'))
 
 
 class GlossaryView(LoginRequiredMixin, ListView):
@@ -392,13 +389,13 @@ class LearnView(LoginRequiredMixin, View):
             context = {
                 'profile': profile,
                 'form': form,
+                'module': module,
                 'phrase': phrase,
                 'phrase_count': module_phrase_count,
                 'learned_count': learned_count,
                 'unlearned_count': module_phrase_count - learned_count,
-                'user_phrase_strength': user_phrase_strength, # Phrase strength object
+                'user_phrase_strength': user_phrase_strength,
                 'module_progress': module_progress,
-                'module': module
             }
             return render(request, self.template_name, context)
         except: # If no unlearned phrase is found, redirect to home page
@@ -414,8 +411,7 @@ class LearnView(LoginRequiredMixin, View):
             msg = f'<h5 class="pb-3">Congrats!</h5><p><b>{module.name.capitalize()}'
             msg += f'</b> module complete</p><p class="fs-4">Grade: {avg_strength}%</p>'
             request.session['module_complete_msg'] = msg
-            finished_learning_url = reverse_lazy('frendj:modules')
-            return redirect(finished_learning_url)
+            return redirect(reverse_lazy('frendj:modules'))
     
     def post(self, request, pk):
         profile = Profile.objects.get(user=request.user)
@@ -425,7 +421,7 @@ class LearnView(LoginRequiredMixin, View):
         user_phrase_strength = UserPhraseStrength.objects.get(
                     id=request.session.get('user_phrase_strength_id')
                 )
-        phrase = Phrase.objects.get(id=user_phrase_strength.phrase_id)
+        phrase = user_phrase_strength.phrase
         translations = phrase.phrase_translations.all()
  
         if not form.is_valid():
@@ -482,8 +478,7 @@ class LearnView(LoginRequiredMixin, View):
         })
 
         # Redirect to feedback if post succeeds
-        success_url = reverse_lazy('frendj:feedback')
-        return redirect(success_url)
+        return redirect(reverse_lazy('frendj:feedback'))
 
 
 class PracticeView(LoginRequiredMixin, View):
@@ -604,8 +599,7 @@ class PracticeView(LoginRequiredMixin, View):
         })
 
         # Redirect to feedback if post succeeds
-        success_url = reverse_lazy('frendj:feedback')
-        return redirect(success_url)
+        return redirect(reverse_lazy('frendj:feedback'))
 
 
 class ReviewView(LoginRequiredMixin, View):
@@ -727,8 +721,7 @@ class ReviewView(LoginRequiredMixin, View):
         })
 
         # Redirect to feedback if post succeeds
-        success_url = reverse_lazy('frendj:feedback')
-        return redirect(success_url)
+        return redirect(reverse_lazy('frendj:feedback'))
 
 
 class AccentView(LoginRequiredMixin, View):
@@ -848,8 +841,7 @@ class AccentView(LoginRequiredMixin, View):
         })
 
         # Redirect to feedback if post succeeds
-        success_url = reverse_lazy('frendj:feedback')
-        return redirect(success_url)
+        return redirect(reverse_lazy('frendj:feedback'))
 
 
 class FeedbackView(LoginRequiredMixin, View):
