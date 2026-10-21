@@ -1,7 +1,7 @@
 from django.shortcuts import render
 
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Count, Exists, ExpressionWrapper, F, IntegerField, OuterRef, Q, Value
+from django.db.models import Count, Exists, ExpressionWrapper, F, IntegerField, OuterRef, Q, Sum, Value
 from django.db.models.functions import ExtractDay, Greatest, NullIf
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect, render
@@ -56,7 +56,7 @@ def eval_translation(raw_answer: str, correct_translation: str) -> tuple[float, 
     print(translation_score, error_count, raw_answer, correct_translation)
     return translation_score, error_count
 
-
+# TODO - need to add HTML excapte to this function before returning code
 def feedback(
         raw_answer: str, 
         correct_translation: str, 
@@ -366,48 +366,41 @@ class LearnView(LoginRequiredMixin, View):
         profile = Profile.objects.get(user=request.user)
         form = TestForm()
         module = Module.objects.get(id=pk)
-        phrases = module.phrases_in_module.all()
-        try: # Select random unlearned phrase for testing and save it to session for access in POST
-            user_unlearned_phrase_objects = UserPhraseStrength.objects.filter(
-                learned=False,
-                user=request.user,
-                phrase__in=phrases
-            )
-            user_phrase_strength = choice(user_unlearned_phrase_objects)
-            phrase = phrases.get(id=user_phrase_strength.phrase_id)
-            request.session['user_phrase_strength_id'] = user_phrase_strength.id
+        user_phrase_data = UserPhraseStrength.objects.filter(
+            user=request.user, phrase__module_id=pk
+        )
+        counts = user_phrase_data.aggregate(
+            unlearned=Count('pk', filter=Q(learned=False)),
+            learned=Count('pk', filter=Q(learned=True)),
+            total=Count('pk'),
+            total_module_strength=Sum('strength'),
+        )
 
-            # Module progress
-            module_phrase_count = phrases.count()
-            learned_count = UserPhraseStrength.objects.filter(
-                learned=True,
-                user=request.user,
-                phrase__in=phrases
-            ).count()
-            module_progress = round( (learned_count / module_phrase_count) * 100 )
+        # Select random unlearned phrase for testing. Save to session for access in POST
+        if counts['unlearned']> 0:
+            user_phrase_strength = user_phrase_data.filter(learned=False).order_by('?').first() 
+            request.session['user_phrase_strength_id'] = user_phrase_strength.id
+            module_progress = round(
+                (counts['learned'] / counts['total']) * 100 
+            ) if counts['total'] > 0 else 0
 
             context = {
                 'profile': profile,
                 'form': form,
                 'module': module,
-                'phrase': phrase,
-                'phrase_count': module_phrase_count,
-                'learned_count': learned_count,
-                'unlearned_count': module_phrase_count - learned_count,
+                'phrase': user_phrase_strength.phrase,
+                'phrase_count':counts['total'],
+                'learned_count': counts['learned'],
+                'unlearned_count': counts['unlearned'],
                 'user_phrase_strength': user_phrase_strength,
                 'module_progress': module_progress,
             }
             return render(request, self.template_name, context)
-        except: # If no unlearned phrase is found, redirect to home page
-            user_module_phrase_strength_set = UserPhraseStrength.objects.filter(
-                user=request.user,
-                phrase__in=phrases
-            )
-            count, total_strength = 0, 0
-            for phrase_strength in user_module_phrase_strength_set:
-                count += 1
-                total_strength += phrase_strength.strength
-            avg_strength = round(total_strength / count)
+        else: # If no unlearned phrase is found, redirect to home page with completion message
+            if counts['total'] > 0 and counts['total_module_strength'] is not None:
+                avg_strength = round(counts['total_module_strength'] / counts['total'])
+            else:
+                avg_strength = 0
             msg = f'<h5 class="pb-3">Congrats!</h5><p><b>{module.name.capitalize()}'
             msg += f'</b> module complete</p><p class="fs-4">Grade: {avg_strength}%</p>'
             request.session['module_complete_msg'] = msg
