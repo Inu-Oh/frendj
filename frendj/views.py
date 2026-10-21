@@ -377,7 +377,7 @@ class LearnView(LoginRequiredMixin, View):
         )
 
         # Select random unlearned phrase for testing. Save to session for access in POST
-        if counts['unlearned']> 0:
+        if counts['unlearned'] > 0:
             user_phrase_strength = user_phrase_data.filter(learned=False).order_by('?').first() 
             request.session['user_phrase_strength_id'] = user_phrase_strength.id
             module_progress = round(
@@ -433,7 +433,7 @@ class LearnView(LoginRequiredMixin, View):
         best_score = UNASSESSED_SCORE
         least_errors = MAX_ERRORS
 
-        # Evaluate the user's answer agains all possible translations and generate feedback.
+        # Evaluate the user's answer against all translations and generate feedback
         for translation in translations:
             cleaned_test_phrase = unidecode(translation.translation.casefold())
             current_score, current_errors = eval_translation(
@@ -545,27 +545,32 @@ class PracticeView(LoginRequiredMixin, View):
             }
             return render(request, self.template_name, context)
 
-        # Clean user's answer and escape any html entities before testing. Initiate score and error counts.
-        raw_answer = html.escape(form.cleaned_data['answer'].strip())
-        normalized_answer = unidecode(raw_answer.lower())
-        score = UNASSESSED_SCORE
-        errors = MAX_ERRORS
+        # Set up all data needed to evaluate the user answer
+        raw_answer = form.cleaned_data['answer'].strip()
+        normalized_answer = unidecode(raw_answer.casefold())
+        best_translation = None
+        best_score = UNASSESSED_SCORE
+        least_errors = MAX_ERRORS
 
-        # Find translation to best match user's answer. Evaluate score and set feedback.       
-        for tr in translations:
-            cleaned_test_phrase = unidecode(tr.translation.lower())
-            curr_score, errors = eval_translation(normalized_answer, cleaned_test_phrase)
-            if curr_score > score:
-                score = curr_score
-                matched_translation = tr.translation
-                feedback_html = feedback(raw_answer, matched_translation, errors, score)
-        try: 
-            feedback_html
-        except NameError:
-            feedback_html = feedback(raw_answer, translations[0].translation, errors, score)
+        # Evaluate the user's answer against all translations and generate feedback
+        for translation in translations:
+            cleaned_test_phrase = unidecode(translation.translation.casefold())
+            current_score, current_errors = eval_translation(
+                normalized_answer, cleaned_test_phrase
+            )
+            if current_score > best_score:
+                best_score = current_score
+                least_errors = current_errors
+                matched_translation = translation.translation
+            
+        if best_translation is None:
+            best_translation = translations[0]
+        
+        feedback_html = feedback(raw_answer, matched_translation, least_errors, best_score)
 
-        # If evaluation passes mark, add points to user profile
-        if score >= 90:
+        # Increment views. Add points if score passes and update user profile and phrase strength
+        user_phrase_strength.views += 1
+        if best_score >= 90:
             user_phrase_strength.correct += 1
             response_accuracy = True
             profile.xp += PLUS_5_XP
@@ -573,9 +578,6 @@ class PracticeView(LoginRequiredMixin, View):
             request.session['correct_count'] += 1
         else:
             response_accuracy = False
-
-        # Adjust and save the user's phrase strength
-        user_phrase_strength.views += 1
         user_phrase_strength.strength = (
             (user_phrase_strength.views - 
                 (user_phrase_strength.views - user_phrase_strength.correct)
@@ -667,37 +669,39 @@ class ReviewView(LoginRequiredMixin, View):
             }
             return render(request, self.template_name, context)
 
-        # Clean user's answer and escape any html entities before testing. Initiate score and error counts.
-        raw_answer = html.escape(form.cleaned_data['answer'].strip())
-        normalized_answer = unidecode(raw_answer.lower())
-        score = UNASSESSED_SCORE
-        errors = MAX_ERRORS
+        # Set up all data needed to evaluate the user answer
+        raw_answer = form.cleaned_data['answer'].strip()
+        normalized_answer = unidecode(raw_answer.casefold())
+        best_translation = None
+        best_score = UNASSESSED_SCORE
+        least_errors = MAX_ERRORS
 
-        # Find translation to match user's answer. Evaluate score and set feedback.
-        for tr in translations:
-            cleaned_test_phrase = unidecode(tr.translation.lower())
-            curr_score, errors = eval_translation(normalized_answer, cleaned_test_phrase)
-            if curr_score > score:
-                score = curr_score
-                matched_translation = tr.translation
-                feedback_html = feedback(raw_answer, matched_translation, errors, score)
-        try: 
-            feedback_html
-        except NameError:
-            feedback_html = feedback(raw_answer, translations[0].translation, errors, score)
+        # Evaluate the user's answer against all translations and generate feedback
+        for translation in translations:
+            cleaned_test_phrase = unidecode(translation.translation.casefold())
+            current_score, current_errors = eval_translation(
+                normalized_answer, cleaned_test_phrase
+            )
+            if current_score > best_score:
+                best_score = current_score
+                least_errors = current_errors
+                matched_translation = translation.translation
+            
+        if best_translation is None:
+            best_translation = translations[0]
+        
+        feedback_html = feedback(raw_answer, matched_translation, least_errors, best_score)
 
-        # If evaluation passes mark, add points to user profile and raise user phrase strength
-        if score >= 90:
+        # Increment views. Add points if score passes and update user profile and phrase strength
+        user_phrase_strength.views += 1
+        if best_score >= 90:
             user_phrase_strength.correct += 1
+            response_accuracy = True
             profile.xp += PLUS_5_XP
             profile.save()
-            response_accuracy = True
             request.session['correct_count'] += 1
         else:
             response_accuracy = False
-
-        # Adjust and save the user's phrase strength
-        user_phrase_strength.views += 1
         user_phrase_strength.strength = (
             (user_phrase_strength.views - 
                 (user_phrase_strength.views - user_phrase_strength.correct)
@@ -791,30 +795,34 @@ class AccentView(LoginRequiredMixin, View):
             }
             return render(request, self.template_name, context)
 
-        # Clean user's answer, escape any html entities and remove punctuation. Initiate score evaluation.
-        raw_answer = html.escape(form.cleaned_data['answer'].strip())
-        test_user_ans = raw_answer.translate(str.maketrans("", "", string.punctuation))
-        highest_score = UNASSESSED_SCORE
-        
-        # Find translation that exactly matches answer. Evaluate score, add points and set feedback.
+        # Set up all data needed to evaluate the user answer
+        raw_answer = form.cleaned_data['answer'].strip()
+        normalized_answer = raw_answer.translate(str.maketrans("", "", string.punctuation))
+        matched_translation = None
+        best_score = UNASSESSED_SCORE
+        least_errors = MAX_ERRORS
+
+        # Check answer for perfect match against all translations, update profile points and ge5 feedback
         for translation in translations:
             test_translation = translation.translation.translate(str.maketrans("", "", string.punctuation))
-            score, errors = eval_translation(test_user_ans.lower(), test_translation.lower())
-            if test_user_ans == test_translation:
+            score, errors = eval_translation(normalized_answer.lower(), test_translation.lower())
+            if normalized_answer == test_translation:
                 user_phrase_strength.correct += 1
                 profile.xp += PLUS_9_XP
                 profile.save()
                 response_accuracy = True
                 matched_translation = translation.translation
-                feedback_html = feedback(raw_answer, matched_translation, errors, score)
                 request.session['correct_count'] += 1
-                break
-            elif score > highest_score:
-                response_accuracy = False    
-        try: 
-            feedback_html
-        except NameError:
-            feedback_html = feedback(raw_answer, translations[0].translation, errors, score)
+            else:
+                response_accuracy = False
+            if score > best_score:
+                best_score = score
+                least_errors = errors
+
+        if matched_translation is None:
+            matched_translation = translations[0]
+        
+        feedback_html = feedback(raw_answer, matched_translation, least_errors, best_score)
       
         # Adjust and save the user's phrase views and score
         user_phrase_strength.views += 1
