@@ -28,6 +28,28 @@ body {
     height: 1.5rem;
 }
 
+.progress-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    pointer-events: none;
+}
+
+.progress-label-low {
+    color: #212529;
+    width: fit-content;
+    margin: auto;
+    padding: 0 0.25rem;
+    border-radius: 0.25rem;
+}
+
+.progress-label-high {
+    color: white;
+}
+
 #modules-prog-bar {
     width: 100%;
     height: 1.5rem;

@@ -28,12 +28,15 @@
                 {% if learned_count > 0 %}{{ learned_count }} done &#8226; {% endif %}
                 {{ unlearned_count }} cards to go
             </label>
-            <div class="progress border w-100" id="prog-bar">
-                <div class="progress-bar progress-bar-striped bg-success fw-bold"
+            <div class="progress border w-100 position-relative" id="prog-bar">
+                <div class="progress-bar progress-bar-striped bg-success"
                     role="progressbar" style="width: {{ progress }}%;"
-                    aria-valuenow="{{ progress }}" aria-valuemin="0" aria-valuemax="100">
-                        {{ progress }}%
+                    aria-valuenow="{{ progress }}" aria-valuemin="0"
+                    aria-valuemax="100" aria-valuetext="{{ progress }}%">
                 </div>
+                <span class="progress-label {% if progress < 50 %}progress-label-low{% else %}progress-label-high{% endif %}">
+                    {{ progress }}%
+                </span>
             </div>
         </div>
         
@@ -41,12 +44,15 @@
 
         <div class="py-3">
             <label for="prog-bar" class="text-muted small">Course progress</label>
-            <div class="progress border w-100" id="prog-bar">
-                <div class="progress-bar progress-bar-striped bg-success fw-bold"
+            <div class="progress border w-100 position-relative" id="prog-bar">
+                <div class="progress-bar progress-bar-striped bg-success"
                     role="progressbar" style="width: {{ progress }}%;"
-                    aria-valuenow="{{ progress }}" aria-valuemin="0" aria-valuemax="100">
-                        {{ progress }}%
+                    aria-valuenow="{{ progress }}" aria-valuemin="0"
+                    aria-valuemax="100" aria-valuetext="{{ progress }}%">
                 </div>
+                <span class="progress-label {% if progress < 50 %}progress-label-low{% else %}progress-label-high{% endif %}">
+                    {{ progress }}%
+                </span>
             </div>
         </div>
 
@@ -59,12 +65,15 @@
 
         <div class="py-3">
             <label for="prog-bar" class="text-muted small">Quiz progress</label>
-            <div class="progress border w-100" id="prog-bar">
-                <div class="progress-bar progress-bar-striped bg-success fw-bold"
+            <div class="progress border w-100 position-relative" id="prog-bar">
+                <div class="progress-bar progress-bar-striped bg-success"
                     role="progressbar" style="width: {{ progress }}%;"
-                    aria-valuenow="{{ progress }}" aria-valuemin="0" aria-valuemax="100">
-                        {{ progress }}%
+                    aria-valuenow="{{ progress }}" aria-valuemin="0"
+                    aria-valuemax="100" aria-valuetext="{{ progress }}%">
                 </div>
+                <span class="progress-label {% if progress < 50 %}progress-label-low{% else %}progress-label-high{% endif %}">
+                    {{ progress }}%
+                </span>
             </div>
         </div>
 

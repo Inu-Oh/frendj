@@ -38,13 +38,15 @@
                             {% if learned_count > 0 %}{{ learned_count }} done &#8226; {% endif %}
                             {{ unlearned_count }} cards to go
                         </label>
-                        <div class="progress border" id="prog-bar">
-                            <div class="progress-bar progress-bar-striped bg-success fw-bold"
+                        <div class="progress border w-100 position-relative" id="prog-bar">
+                            <div class="progress-bar progress-bar-striped bg-success"
                                 role="progressbar" style="width: {{ module_progress }}%;"
-                                aria-valuenow="{{ module_progress }}" 
-                                aria-valuemin="0" aria-valuemax="100">
-                                    {{ module_progress }}%
+                                aria-valuenow="{{ module_progress }}" aria-valuemin="0"
+                                aria-valuemax="100" aria-valuetext="{{ module_progress }}%">
                             </div>
+                            <span class="progress-label {% if module_progress < 50 %}progress-label-low{% else %}progress-label-high{% endif %}">
+                                {{ module_progress }}%
+                            </span>
                         </div>
                     </div>
 
