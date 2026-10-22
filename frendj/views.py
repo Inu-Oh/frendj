@@ -33,7 +33,7 @@ def clear_data_from_session(request, *previous_question_data) -> None:
                 print(f'Exception Did not clear {data_key} from session.')
 
 
-def eval_translation(raw_answer: str, correct_translation: str) -> tuple[float, int]:
+def eval_answer(raw_answer: str, correct_translation: str) -> tuple[float, int]:
     """
     Evaluates the test score for a translation entered by the user
     in comparison to correct translation.
@@ -98,6 +98,33 @@ def end_quiz(request, quiz_name) -> HttpResponseRedirect:
     return redirect(reverse_lazy('frendj:home'))
 
 
+def match_answer(form, translations):
+    # Set up all data needed to evaluate the user answer
+    raw_answer = form.cleaned_data['answer'].strip()
+    normalized_answer = unidecode(raw_answer.casefold())
+    best_translation = None
+    best_score = UNASSESSED_SCORE
+    least_errors = MAX_ERRORS
+
+    # Evaluate the user's answer against all translations and generate feedback
+    for translation in translations:
+        cleaned_test_phrase = unidecode(translation.translation.casefold())
+        current_score, current_errors = eval_answer(
+            normalized_answer, cleaned_test_phrase
+        )
+        if current_score > best_score:
+            best_score = current_score
+            least_errors = current_errors
+            best_translation = translation.translation
+        
+    if best_translation is None:
+        best_translation = translations[0]
+    
+    feedback_html = feedback(raw_answer, best_translation, least_errors, best_score)
+
+    return best_score, feedback_html
+
+
 class Home(LoginRequiredMixin, TemplateView):
     """Displays the app home page menu with exercises for users and nav bar"""
 
@@ -119,9 +146,8 @@ class Home(LoginRequiredMixin, TemplateView):
             quiz_complete_msg = ""
         
         # Delete session data from exercises if it exists
-        session_data_keys = ['phrase', 'user_phrase_strength_id', 'raw_answer',
-            'response_accuracy', 'phrase_language', 'feedback_html', 'xp_reward',
-            'module_id', 'testing_view']
+        session_data_keys = ['phrase', 'module_id', 'xp_reward', 'response_accuracy', 
+            'user_phrase_strength_id', 'phrase_language', 'feedback_html', 'testing_view']
         clear_data_from_session(request,*session_data_keys)
         # Test count for Practice, Review and Accent Quiz views is set here, incremented
         # and deleted in respective Quiz view. This circumvents Django bug that fails to delete session data.
@@ -426,28 +452,7 @@ class LearnView(LoginRequiredMixin, View):
             }
             return render(request, self.template_name, context)
 
-        # Set up all data needed to evaluate the user answer
-        raw_answer = form.cleaned_data['answer'].strip()
-        normalized_answer = unidecode(raw_answer.casefold())
-        best_translation = None
-        best_score = UNASSESSED_SCORE
-        least_errors = MAX_ERRORS
-
-        # Evaluate the user's answer against all translations and generate feedback
-        for translation in translations:
-            cleaned_test_phrase = unidecode(translation.translation.casefold())
-            current_score, current_errors = eval_translation(
-                normalized_answer, cleaned_test_phrase
-            )
-            if current_score > best_score:
-                best_score = current_score
-                least_errors = current_errors
-                matched_translation = translation.translation
-            
-        if best_translation is None:
-            best_translation = translations[0]
-        
-        feedback_html = feedback(raw_answer, matched_translation, least_errors, best_score)
+        best_score, feedback_html = match_answer(form, translations)
 
         # If evaluation passes 90%, add points to user profile and raise user phrase strength
         user_phrase_strength.learned = True
@@ -465,7 +470,6 @@ class LearnView(LoginRequiredMixin, View):
         # Store data in session for feedback view
         request.session.update({
             'phrase_id': user_phrase_strength.phrase.id,
-            'raw_answer': raw_answer, # Used as backup in csae of error with HTML
             'response_accuracy': response_accuracy,
             'testing_view': 'frendj:learn',
             'feedback_html': feedback_html,
@@ -545,28 +549,7 @@ class PracticeView(LoginRequiredMixin, View):
             }
             return render(request, self.template_name, context)
 
-        # Set up all data needed to evaluate the user answer
-        raw_answer = form.cleaned_data['answer'].strip()
-        normalized_answer = unidecode(raw_answer.casefold())
-        best_translation = None
-        best_score = UNASSESSED_SCORE
-        least_errors = MAX_ERRORS
-
-        # Evaluate the user's answer against all translations and generate feedback
-        for translation in translations:
-            cleaned_test_phrase = unidecode(translation.translation.casefold())
-            current_score, current_errors = eval_translation(
-                normalized_answer, cleaned_test_phrase
-            )
-            if current_score > best_score:
-                best_score = current_score
-                least_errors = current_errors
-                matched_translation = translation.translation
-            
-        if best_translation is None:
-            best_translation = translations[0]
-        
-        feedback_html = feedback(raw_answer, matched_translation, least_errors, best_score)
+        best_score, feedback_html = match_answer(form, translations)
 
         # Increment views. Add points if score passes and update user profile and phrase strength
         user_phrase_strength.views += 1
@@ -588,7 +571,6 @@ class PracticeView(LoginRequiredMixin, View):
         test_count = request.session['test_count'] + 1
         request.session.update({
             'phrase_id': user_phrase_strength.phrase.id,
-            'raw_answer': raw_answer, # Used as backup in csae of error with HTML
             'response_accuracy': response_accuracy,
             'feedback_html': feedback_html,
             'xp_reward': PLUS_5_XP,
@@ -669,28 +651,7 @@ class ReviewView(LoginRequiredMixin, View):
             }
             return render(request, self.template_name, context)
 
-        # Set up all data needed to evaluate the user answer
-        raw_answer = form.cleaned_data['answer'].strip()
-        normalized_answer = unidecode(raw_answer.casefold())
-        best_translation = None
-        best_score = UNASSESSED_SCORE
-        least_errors = MAX_ERRORS
-
-        # Evaluate the user's answer against all translations and generate feedback
-        for translation in translations:
-            cleaned_test_phrase = unidecode(translation.translation.casefold())
-            current_score, current_errors = eval_translation(
-                normalized_answer, cleaned_test_phrase
-            )
-            if current_score > best_score:
-                best_score = current_score
-                least_errors = current_errors
-                matched_translation = translation.translation
-            
-        if best_translation is None:
-            best_translation = translations[0]
-        
-        feedback_html = feedback(raw_answer, matched_translation, least_errors, best_score)
+        best_score, feedback_html = match_answer(form, translations)
 
         # Increment views. Add points if score passes and update user profile and phrase strength
         user_phrase_strength.views += 1
@@ -712,7 +673,6 @@ class ReviewView(LoginRequiredMixin, View):
         test_count = request.session['test_count'] + 1
         request.session.update({
             'phrase_id': user_phrase_strength.phrase.id,
-            'raw_answer': raw_answer, # Used as backup in csae of error with HTML
             'response_accuracy': response_accuracy,
             'feedback_html': feedback_html,
             'xp_reward': PLUS_5_XP,
@@ -805,7 +765,7 @@ class AccentView(LoginRequiredMixin, View):
         # Check answer for perfect match against all translations, update profile points and ge5 feedback
         for translation in translations:
             test_translation = translation.translation.translate(str.maketrans("", "", string.punctuation))
-            score, errors = eval_translation(normalized_answer.lower(), test_translation.lower())
+            score, errors = eval_answer(normalized_answer.lower(), test_translation.lower())
             if normalized_answer == test_translation:
                 user_phrase_strength.correct += 1
                 profile.xp += PLUS_9_XP
@@ -820,7 +780,7 @@ class AccentView(LoginRequiredMixin, View):
                 least_errors = errors
 
         if matched_translation is None:
-            matched_translation = translations[0]
+            matched_translation = translations[0].translation
         
         feedback_html = feedback(raw_answer, matched_translation, least_errors, best_score)
       
@@ -836,7 +796,6 @@ class AccentView(LoginRequiredMixin, View):
         test_count = request.session['test_count'] + 1
         request.session.update({
             'phrase_id': user_phrase_strength.phrase.id,
-            'raw_answer': raw_answer, # Used as backup in csae of error with HTML
             'response_accuracy': response_accuracy,
             'feedback_html': feedback_html,
             'xp_reward': PLUS_9_XP,

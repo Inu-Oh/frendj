@@ -61,12 +61,6 @@
                     >&nbsp;
                     {% if feedback_html %}
                         {{ feedback_html|safe }}
-                    {% else %}
-                        {% if response_accuracy == True %}
-                            <span class="text-success fw-bold">{{ user_answer }}
-                        {% else %}
-                            <span class="text-danger fw-bold">{{ user_answer }}
-                        {% endif %}
                     {% endif %}</a>
             </div>
 
