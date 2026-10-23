@@ -30,9 +30,14 @@
                     </div>
                     <div class="container">
                         <div class="row pt-2">
-                            <div class="col-8 text-start fw-bold">Subject</div>
+                            <div class="col-6 text-start fw-bold">Subject</div>
+                            {% if learned_phrase_count > 0 %}
+                                <div class="col-2 text-end fw-bold">Progress</div>
+                                <div class="col-2 text-end fw-bold">Strength</div>
+                            {% else %}
+                                <div class="col-4"></div>
+                            {% endif %}
                             <div class="col-2 text-end fw-bold">Cards</div>
-                            <div class="col-2 text-end fw-bold">Progress</div>
                         </div>
                     </div>
                 </div>
@@ -45,21 +50,30 @@
                                 class="btn btn-outline-dark my-2 w-100">
                                 <div class="container">
                                     <div class="row">
-                                        <div class="col-8 text-start">
+                                        <div class="col-6 text-start">
                                             {{ module.name|title }}
                                         </div>
+                                        {% if module.learned_phrase_count > 0 %}
+                                            {% if module.strength > 50 %}
+                                                <div class="col-2 text-end text-success fw-bold">
+                                            {% else %}
+                                                <div class="col-2 text-end text-danger fw-bold">
+                                            {% endif %}
+                                                    {{ module.strength }}%
+                                                </div>
+                                            {% if module.progress > 5 %}
+                                                <div class="col-2 text-end text-success fw-bold">
+                                            {% else %}
+                                                <div class="col-2 text-end text-secondary">
+                                            {% endif %}    
+                                                {{ module.progress }}%
+                                            </div>
+                                        {% else %}
+                                            <div class="col-4"></div>
+                                        {% endif %}
                                         <div class="col-2 text-end text-primary fw-bold">
                                             {{ module.phrase_count }}
                                         </div>
-                                        {% if module.learned_phrase_count > 0 %}
-                                        {% if module.module_progress > 5 %}
-                                            <div class="col-2 text-end text-success fw-bold">
-                                        {% else %}
-                                            <div class="col-2 text-end text-secondary">
-                                        {% endif %}    
-                                            {{ module.module_progress }}%
-                                            </div>
-                                         {% endif %}
                                     </div>
                                 </div>
                             </a>
@@ -67,16 +81,15 @@
                             <button class="btn btn-light my-2 disabled w-100" aria-disabled="true">
                                 <div class="container">
                                     <div class="row">
-                                        <div class="col-8 text-start text-muted">
+                                        <div class="col-6 text-start text-muted">
                                             {{ module.name|title }}
                                         </div>
                                         <div class="col-2 text-end text-muted">
-                                            {{ module.phrase_count }}
+                                            {{ module.strength }}%
                                         </div>
+                                        <div class="col-2 text-end text-success">100%</div>
                                         <div class="col-2 text-end text-muted">
-                                            <small class="badge bg-success">
-                                                100%
-                                            </small>
+                                            {{ module.phrase_count }}
                                         </div>
                                     </div>
                                 </div>

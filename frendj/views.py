@@ -325,10 +325,8 @@ class ModulesView(LoginRequiredMixin, ListView):
             unlearned=Count('pk', filter=Q(learned=False)),
             learned=Count('pk', filter=Q(learned=True)),
         )
-        unlearned_phrase_count = phrase_counts['unlearned']
-        learned_phrase_count = phrase_counts['learned']
-        total = unlearned_phrase_count + learned_phrase_count
-        progress = round( (learned_phrase_count * 100) / total ) if total else 0
+        total = phrase_counts['unlearned'] + phrase_counts['learned']
+        progress = round( (phrase_counts['learned'] * 100) / total ) if total else 0
         unlearned_phrases = UserPhraseStrength.objects.filter(
             user=request.user,
             learned=False,
@@ -344,8 +342,13 @@ class ModulesView(LoginRequiredMixin, ListView):
                 ),
                 distinct=True,
             ),
-            module_progress=ExpressionWrapper(
+            progress=ExpressionWrapper(
                 F('learned_phrase_count') * 100 / NullIf(F('phrase_count'), Value(0)),
+                output_field=IntegerField(),
+            ),
+            total_strength=Sum('phrases_in_module__userphrasestrength__strength'),
+            strength=ExpressionWrapper(
+                F('total_strength') / NullIf(F('learned_phrase_count'), Value(0)),
                 output_field=IntegerField(),
             ),
             has_unlearned_phrase=Exists(unlearned_phrases),
@@ -364,8 +367,7 @@ class ModulesView(LoginRequiredMixin, ListView):
 
         context = {
             'profile': profile,
-            'unlearned_phrase_count': unlearned_phrase_count,
-            'learned_phrase_count': learned_phrase_count,
+            'learned_phrase_count': phrase_counts['learned'],
             'progress': progress,
             'modules': modules,
             'module_complete_msg': module_complete_msg,
