@@ -7,109 +7,99 @@
 
 {% block content %}
 <div class="container">
-    <div class="row">
-        <div class="col-8">
-            <main class="main card bg-light p-0">
+    {% if profile %}
+        {% include 'alt_info_pane.html' %}
+    {% endif %}
 
-                <div class="card-header bg-light rounded-top">
-                    <div class="container-fluid d-flex justify-content-between">
-                        <h1 class="fs-3 card-title pt-2">
-                            Learning modules
-                        </h1>
-                        <section id="module-search" class="float-end">
-                            <form action="" muted="get" class="m-2 input-group">
-                                <input type="text" placeholder="Search modules" 
-                                    name="search" class="form-control"
-                                {% if search %} value="{{ search }}" {% endif %}>
-                                <button type="submit" class="btn btn-outline-dark">
-                                    <i class="fa fa-search"></i></button>
-                                <a href="{% url 'frendj:modules' %}" class="btn btn-outline-dark">
-                                    <i class="fa fa-undo pt-1"></i></a>
-                            </form>
-                        </section>
-                    </div>
-                    <div class="container">
-                        <div class="row pt-2">
-                            <div class="col-6 text-start fw-bold">Subject</div>
-                            {% if learned_phrase_count > 0 %}
-                                <div class="col-2 text-end fw-bold">Progress</div>
-                                <div class="col-2 text-end fw-bold">Strength</div>
-                            {% else %}
-                                <div class="col-4"></div>
-                            {% endif %}
-                            <div class="col-2 text-end fw-bold">Cards</div>
-                        </div>
-                    </div>
+        <main class="main card bg-light p-0">
+            <div class="card-header bg-light rounded-top">
+                <div class="container-fluid d-flex justify-content-between">
+                    <h1 class="fs-3 card-title pt-2">
+                        Learning modules
+                    </h1>
+                    <section id="module-search" class="float-end">
+                        <form action="" muted="get" class="m-2 input-group">
+                            <input type="text" placeholder="Search modules" 
+                                name="search" class="form-control"
+                            {% if search %} value="{{ search }}" {% endif %}>
+                            <button type="submit" class="btn btn-outline-dark">
+                                <i class="fa fa-search"></i></button>
+                            <a href="{% url 'frendj:modules' %}" class="btn btn-outline-dark">
+                                <i class="fa fa-undo pt-1"></i></a>
+                        </form>
+                    </section>
                 </div>
-
-                <div id="module-list" class="card-body bg-white rounded-bottom">
-                    <div class="card-text">
-                    {% for module in modules %}
-                        {% if module.has_unlearned_phrase %}
-                            <a href="{% url 'frendj:learn' module.id %}" 
-                                class="btn btn-outline-dark my-2 w-100">
-                                <div class="container">
-                                    <div class="row">
-                                        <div class="col-6 text-start">
-                                            {{ module.name|title }}
-                                        </div>
-                                        {% if module.learned_phrase_count > 0 %}
-                                            {% if module.strength > 50 %}
-                                                <div class="col-2 text-end text-success fw-bold">
-                                            {% else %}
-                                                <div class="col-2 text-end text-danger fw-bold">
-                                            {% endif %}
-                                                    {{ module.strength }}%
-                                                </div>
-                                            {% if module.progress > 5 %}
-                                                <div class="col-2 text-end text-success fw-bold">
-                                            {% else %}
-                                                <div class="col-2 text-end text-secondary">
-                                            {% endif %}    
-                                                {{ module.progress }}%
-                                            </div>
-                                        {% else %}
-                                            <div class="col-4"></div>
-                                        {% endif %}
-                                        <div class="col-2 text-end text-primary fw-bold">
-                                            {{ module.phrase_count }}
-                                        </div>
-                                    </div>
-                                </div>
-                            </a>
+                <div class="container">
+                    <div class="row pt-2">
+                        <div class="col-6 text-start fw-bold">Subject</div>
+                        {% if learned_phrase_count > 0 %}
+                            <div class="col-2 text-end fw-bold">Progress</div>
+                            <div class="col-2 text-end fw-bold">Strength</div>
                         {% else %}
-                            <button class="btn btn-light my-2 disabled w-100" aria-disabled="true">
-                                <div class="container">
-                                    <div class="row">
-                                        <div class="col-6 text-start text-muted">
-                                            {{ module.name|title }}
-                                        </div>
-                                        <div class="col-2 text-end text-muted">
-                                            {{ module.strength }}%
-                                        </div>
-                                        <div class="col-2 text-end text-success">100%</div>
-                                        <div class="col-2 text-end text-muted">
-                                            {{ module.phrase_count }}
-                                        </div>
-                                    </div>
-                                </div>
-                            </button>
+                            <div class="col-4"></div>
                         {% endif %}
-                    {% endfor %}
+                        <div class="col-2 text-end fw-bold">Cards</div>
                     </div>
                 </div>
-
-            </main>
-        </div>
-
-        {% if profile %}
-            <div class="col-4">
-
-                {% include 'info_pane.html' %}
-                
             </div>
-        {% endif %}
-    </div>
+
+            <div id="module-list" class="card-body bg-white rounded-bottom">
+                <div class="card-text">
+                {% for module in modules %}
+                    {% if module.has_unlearned_phrase %}
+                        <a href="{% url 'frendj:learn' module.id %}" 
+                            class="btn btn-outline-dark my-2 w-100">
+                            <div class="container">
+                                <div class="row">
+                                    <div class="col-6 text-start">
+                                        {{ module.name|title }}
+                                    </div>
+                                    {% if module.learned_phrase_count > 0 %}
+                                        {% if module.strength > 50 %}
+                                            <div class="col-2 text-end text-success fw-bold">
+                                        {% else %}
+                                            <div class="col-2 text-end text-danger fw-bold">
+                                        {% endif %}
+                                                {{ module.strength }}%
+                                            </div>
+                                        {% if module.progress > 5 %}
+                                            <div class="col-2 text-end text-success fw-bold">
+                                        {% else %}
+                                            <div class="col-2 text-end text-secondary">
+                                        {% endif %}    
+                                            {{ module.progress }}%
+                                        </div>
+                                    {% else %}
+                                        <div class="col-4"></div>
+                                    {% endif %}
+                                    <div class="col-2 text-end text-primary fw-bold">
+                                        {{ module.phrase_count }}
+                                    </div>
+                                </div>
+                            </div>
+                        </a>
+                    {% else %}
+                        <button class="btn btn-light my-2 disabled w-100" aria-disabled="true">
+                            <div class="container">
+                                <div class="row">
+                                    <div class="col-6 text-start text-muted">
+                                        {{ module.name|title }}
+                                    </div>
+                                    <div class="col-2 text-end text-muted">
+                                        {{ module.strength }}%
+                                    </div>
+                                    <div class="col-2 text-end text-success">100%</div>
+                                    <div class="col-2 text-end text-muted">
+                                        {{ module.phrase_count }}
+                                    </div>
+                                </div>
+                            </div>
+                        </button>
+                    {% endif %}
+                {% endfor %}
+                </div>
+            </div>
+        </main>
 </div>
 
 {% if module_complete_msg %}

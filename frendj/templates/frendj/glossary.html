@@ -2,35 +2,12 @@
 {% load humanize %}
 
 
-{% block header %}
-<header class="container header">
-    <div class="row">
-        <div class="col-1"></div>
-        <div class="col-5 p-3">
-            {% if strength_data.learned > 0 %}
-                <p>You learned {{ strength_data.learned }} out of a total of
-                    {{ phrase_count }} phrases in the course.<br>
-                    Overall score: {{ strength_data.average }}%. </p>
-            {% else %}
-                <p>No results yet. Start learning.</p>
-            {% endif %}
-            <p>Browse phrases. Review performance on learned phrases in the
-                Strength column below.</p>
-            <p>Click on links to modules for unlearned phrases.</p>
-        </div>
-        <div class="col-1"></div>
-
-        {% if profile %}
-            <div class="col">
-                {% include 'info_pane.html' %}
-            </div>
-        {% endif %}
-    </div>
-</header>
-{% endblock header %}
-
-
 {% block content %}
+{% if profile %}
+    {% include 'alt_info_pane.html' %}
+{% endif %}
+
+
 <section class="container-fluid d-flex justify-content-between">
     <form action="" muted="get" class="m-4 input-group">
         <input type="text" placeholder="Search phrases and translations" name="search"
