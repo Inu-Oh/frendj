@@ -6,6 +6,7 @@ from django.db.models.functions import ExtractDay, Greatest, NullIf
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect, render
 from django.utils import timezone
+from django.utils.html import format_html, format_html_join
 from django.urls import reverse_lazy
 from django.views.generic import TemplateView, UpdateView, View, CreateView, ListView
 
@@ -15,6 +16,7 @@ import html
 from random import choice
 from unidecode import unidecode
 import string
+import re
 
 from .models import Module, Phrase, Translation, Profile, UserPhraseStrength
 from .forms import ProfileForm, TestForm
@@ -36,25 +38,28 @@ def clear_data_from_session(request, *previous_question_data) -> None:
 def eval_answer(raw_answer: str, correct_translation: str) -> tuple[float, int]:
     """
     Evaluates the test score for a translation entered by the user
-    in comparison to correct translation.
+    in comparison to a correct translation.
     """
+    def normalize(text: str) -> str:
+        text = unidecode(html.unescape(text)).casefold()
+        return "".join(char for char in text if char.isalnum())
 
-    raw_answer = raw_answer.replace("&#x27;", "'").replace("&#45;", "-").replace("&#44;", ",")
-    if raw_answer == correct_translation:
-        translation_score, error_count = 100, 0
-    else:
-        matcher = SequenceMatcher(None, a=raw_answer, b=correct_translation)
-        translation_score = matcher.ratio() * 100
+    answer = normalize(raw_answer)
+    reference = normalize(correct_translation)
+    matcher = SequenceMatcher(None, a=answer, b=reference)
+    score = matcher.ratio() * 100
 
-        error_count = 0
-        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-            if tag in ('replace', 'delete'):
-                error_count += (i2 - i1) # Length of segment in user answer
-            if tag == 'insert':
-                error_count += (j2 - j1) # Length of segment in correct translation
-    # TODO - Remove print and dev notes after correcting errors
-    print(translation_score, error_count, raw_answer, correct_translation)
-    return translation_score, error_count
+    error_count = 0
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "replace":
+            error_count += max(i2 - i1, j2 - j1)
+        elif tag == "delete":
+            error_count += i2 - i1
+        elif tag == "insert":
+            error_count += j2 - j1
+
+    print(score, error_count)
+    return score, error_count
 
 # TODO - need to add HTML excapte to this function before returning code
 def feedback(
@@ -70,22 +75,27 @@ def feedback(
 
     # Return no feedback for correct answers
     if translation_score >= 100 and error_count <= 0:
-        return f'<span class="text-success">{raw_answer}</span>' 
+        return format_html('<span class="text-success">{}</span>', raw_answer) 
     # Full feedback string is red if too many errors
-    elif translation_score < 75 or error_count >= 4: 
-        return f'<span class="text-danger">{raw_answer}</span>' 
-    else: # Provide more detailed feedback if errors are minimal
+    elif translation_score < 75 or error_count >= 6: 
+        return format_html('<span class="text-danger">{}</span>', raw_answer) 
+    else:
         raw_answer = raw_answer.replace("&#x27;", "'").replace("&#45;", "-").replace("&#44;", ",")
-        matcher = SequenceMatcher(None, a=raw_answer, b=correct_translation)
-        words = []
-        for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-            if tag == 'replace':
-                words.append(f'<span class="text-danger">{raw_answer[i1:i2]}</span>')
-            elif tag == 'insert':
-                words.append(f'<span class="text-danger">{correct_translation[j1:j2]}</span>')
-            elif tag == 'equal':
-                words.append(raw_answer[i1:i2])
-        return f'<span class="text-success">{"".join(words)}</span>' 
+        if 1 <= error_count <= 2 : # Hightlight individual characters if few errors
+            matcher = SequenceMatcher(None, a=raw_answer, b=correct_translation)
+            parts = []
+            for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+                if tag == 'replace':
+                    parts.append(format_html('<span class="text-danger">{}</span>', raw_answer[i1:i2]))
+                elif tag == 'insert':
+                    parts.append(format_html('<span class="text-danger">{}</span>', raw_answer[j1:j2]))
+                elif tag == 'equal':
+                    parts.append(raw_answer[i1:i2])
+            html_str = format_html_join("", "{}", ((part,) for part in parts))
+            return format_html('<span class="text-success">{}</span>', html_str) 
+        else:
+            # Higlight 
+            return format_html('<span class="text-success">{}</span>', "This part is not finished") 
 
 
 def end_quiz(request, quiz_name) -> HttpResponseRedirect:
@@ -101,16 +111,14 @@ def end_quiz(request, quiz_name) -> HttpResponseRedirect:
 def match_answer(form, translations):
     # Set up all data needed to evaluate the user answer
     raw_answer = form.cleaned_data['answer'].strip()
-    normalized_answer = unidecode(raw_answer.casefold())
     best_translation = None
     best_score = UNASSESSED_SCORE
     least_errors = MAX_ERRORS
 
     # Evaluate the user's answer against all translations and generate feedback
     for translation in translations:
-        cleaned_test_phrase = unidecode(translation.translation.casefold())
         current_score, current_errors = eval_answer(
-            normalized_answer, cleaned_test_phrase
+            raw_answer, translation.translation
         )
         if current_score > best_score:
             best_score = current_score
