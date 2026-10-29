@@ -9,9 +9,11 @@ from django.urls import reverse
 from django.utils import timezone
 
 from .models import Module, Phrase, Profile, Translation, UserPhraseStrength
+from .views import feedback
 
 
 User = get_user_model()
+
 
 class ProfileTestCase(TestCase):
 
@@ -412,3 +414,44 @@ class ResetViewTestCase(TestCase):
         self.assertEqual(clamped.updated_at, now)
         self.assertEqual(recent.strength, 80)
         self.assertEqual(other_user_phrase.strength, 80)
+
+
+class FeedbackTestCase(TestCase):
+
+    def test_highlights_extra_answer_character(self):
+        result = feedback("stresse", "stress", error_count=1, translation_score=92)
+
+        self.assertEqual(
+            str(result),
+            '<span class="text-success">'
+            '<span class="text-danger">stresse</span></span>',
+        )
+
+    def test_highlights_misspelled_words_and_preserves_punctuation(self):
+        result = feedback(
+            "The quik, brown fox jump over lazy dog!",
+            "The quick, brown fox jumps over the lazy dog!",
+            error_count=3,
+            translation_score=80,
+        )
+
+        self.assertEqual(
+            str(result),
+            '<span class="text-success">The '
+            '<span class="text-danger">quik</span>, brown fox '
+            '<span class="text-danger">jump</span> over lazy dog!</span>',
+        )
+
+    def test_highlights_wrong_word_when_reference_has_extra_character(self):
+        result = feedback(
+            "Ils font un salade.",
+            "Ils font une salade.",
+            error_count=1,
+            translation_score=95,
+        )
+
+        self.assertEqual(
+            str(result),
+            '<span class="text-success">Ils font '
+            '<span class="text-danger">un</span> salade.</span>',
+        )

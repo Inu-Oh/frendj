@@ -61,7 +61,7 @@ def eval_answer(raw_answer: str, correct_translation: str) -> tuple[float, int]:
     print(score, error_count)
     return score, error_count
 
-# TODO - need to add HTML excapte to this function before returning code
+
 def feedback(
         raw_answer: str, 
         correct_translation: str, 
@@ -77,25 +77,67 @@ def feedback(
     if translation_score >= 100 and error_count <= 0:
         return format_html('<span class="text-success">{}</span>', raw_answer) 
     # Full feedback string is red if too many errors
-    elif translation_score < 75 or error_count >= 6: 
+    elif translation_score < 50 or error_count >= 6: 
         return format_html('<span class="text-danger">{}</span>', raw_answer) 
-    else:
-        raw_answer = raw_answer.replace("&#x27;", "'").replace("&#45;", "-").replace("&#44;", ",")
-        if 1 <= error_count <= 2 : # Hightlight individual characters if few errors
-            matcher = SequenceMatcher(None, a=raw_answer, b=correct_translation)
-            parts = []
-            for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-                if tag == 'replace':
-                    parts.append(format_html('<span class="text-danger">{}</span>', raw_answer[i1:i2]))
-                elif tag == 'insert':
-                    parts.append(format_html('<span class="text-danger">{}</span>', raw_answer[j1:j2]))
-                elif tag == 'equal':
-                    parts.append(raw_answer[i1:i2])
-            html_str = format_html_join("", "{}", ((part,) for part in parts))
-            return format_html('<span class="text-success">{}</span>', html_str) 
-        else:
-            # Higlight 
-            return format_html('<span class="text-success">{}</span>', "This part is not finished") 
+    else: # Highlight misspelled words
+        display_answer = html.unescape(raw_answer)
+        answer_matches = list(re.finditer(r"\w+", display_answer))
+        answer = [match.group().casefold() for match in answer_matches]
+        reference = re.findall(r"\w+", html.unescape(correct_translation).casefold())
+
+        distances = [
+            [0] * (len(reference) + 1)
+            for _ in range(len(answer) + 1)
+        ]
+        for i in range(len(answer) + 1):
+            distances[i][0] = i
+        for j in range(len(reference) + 1):
+            distances[0][j] = j
+        for i, word in enumerate(answer, start=1):
+            for j, expected in enumerate(reference, start=1):
+                distances[i][j] = min(
+                    distances[i - 1][j] + 1,
+                    distances[i][j - 1] + 1,
+                    distances[i - 1][j - 1] + (word != expected),
+                )
+
+        misspelled = set()
+        i, j = len(answer), len(reference)
+        while i or j:
+            if (
+                i and j and answer[i - 1] == reference[j - 1]
+                and distances[i][j] == distances[i - 1][j - 1]
+            ):
+                i -= 1
+                j -= 1
+            elif (
+                i and j
+                and distances[i][j] == distances[i - 1][j - 1] + 1
+            ):
+                misspelled.add(i - 1)
+                i -= 1
+                j -= 1
+            elif i and distances[i][j] == distances[i - 1][j] + 1:
+                misspelled.add(i - 1)
+                i -= 1
+            else:
+                j -= 1
+
+        parts = []
+        position = 0
+        for index, match in enumerate(answer_matches):
+            parts.append(display_answer[position:match.start()])
+            word = display_answer[match.start():match.end()]
+            if index in misspelled:
+                parts.append(
+                    format_html('<span class="text-danger">{}</span>', word)
+                )
+            else:
+                parts.append(word)
+            position = match.end()
+        parts.append(display_answer[position:])
+        html_str = format_html_join("", "{}", ((part,) for part in parts))
+        return format_html('<span class="text-success">{}</span>', html_str)
 
 
 def end_quiz(request, quiz_name) -> HttpResponseRedirect:
