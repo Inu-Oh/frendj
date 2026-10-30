@@ -455,3 +455,16 @@ class FeedbackTestCase(TestCase):
             '<span class="text-success">Ils font '
             '<span class="text-danger">un</span> salade.</span>',
         )
+
+    def test_highlights_incorrect_apostrophe(self):
+        result = feedback(
+            "Don't make fun of me.",
+            "Do not make fun of me.",
+            error_count=2,
+            translation_score=90,
+        )
+
+        self.assertIn(
+            '<span class="text-danger">&#x27;</span>',
+            str(result),
+        )

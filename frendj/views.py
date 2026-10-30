@@ -17,6 +17,7 @@ from random import choice
 from unidecode import unidecode
 import string
 import re
+import unicodedata
 
 from .models import Module, Phrase, Translation, Profile, UserPhraseStrength
 from .forms import ProfileForm, TestForm
@@ -58,7 +59,6 @@ def eval_answer(raw_answer: str, correct_translation: str) -> tuple[float, int]:
         elif tag == "insert":
             error_count += j2 - j1
 
-    print(score, error_count)
     return score, error_count
 
 
@@ -81,9 +81,22 @@ def feedback(
         return format_html('<span class="text-danger">{}</span>', raw_answer) 
     else: # Highlight misspelled words
         display_answer = html.unescape(raw_answer)
+        reference_text = html.unescape(correct_translation)
         answer_matches = list(re.finditer(r"\w+", display_answer))
         answer = [match.group().casefold() for match in answer_matches]
-        reference = re.findall(r"\w+", html.unescape(correct_translation).casefold())
+        reference = re.findall(r"\w+", reference_text.casefold())
+
+        punctuation_errors = set()
+        punctuation_matcher = SequenceMatcher(
+            None, display_answer, reference_text, autojunk=False
+        )
+        for tag, i1, i2, _, _ in punctuation_matcher.get_opcodes():
+            if tag in {"replace", "delete"}:
+                punctuation_errors.update(
+                    index
+                    for index in range(i1, i2)
+                    if unicodedata.category(display_answer[index]).startswith("P")
+                )
 
         distances = [
             [0] * (len(reference) + 1)
@@ -124,9 +137,26 @@ def feedback(
                 j -= 1
 
         parts = []
+
+        def append_segment(start: int, end: int) -> None:
+            segment_start = start
+            for index in range(start, end):
+                if index in punctuation_errors:
+                    if segment_start < index:
+                        parts.append(display_answer[segment_start:index])
+                    parts.append(
+                        format_html(
+                            '<span class="text-danger">{}</span>',
+                            display_answer[index],
+                        )
+                    )
+                    segment_start = index + 1
+            if segment_start < end:
+                parts.append(display_answer[segment_start:end])
+
         position = 0
         for index, match in enumerate(answer_matches):
-            parts.append(display_answer[position:match.start()])
+            append_segment(position, match.start())
             word = display_answer[match.start():match.end()]
             if index in misspelled:
                 parts.append(
@@ -135,7 +165,7 @@ def feedback(
             else:
                 parts.append(word)
             position = match.end()
-        parts.append(display_answer[position:])
+        append_segment(position, len(display_answer))
         html_str = format_html_join("", "{}", ((part,) for part in parts))
         return format_html('<span class="text-success">{}</span>', html_str)
 
@@ -519,6 +549,13 @@ class LearnView(LoginRequiredMixin, View):
             response_accuracy = False
         user_phrase_strength.save()
 
+        # TODO - delete after testing.
+        print(
+            user_phrase_strength.phrase.phrase,
+            "Score", best_score,
+            "Strength", user_phrase_strength.strength
+        )
+        
         # Store data in session for feedback view
         request.session.update({
             'phrase_id': user_phrase_strength.phrase.id,
@@ -619,6 +656,13 @@ class PracticeView(LoginRequiredMixin, View):
             ) * 100) / user_phrase_strength.views
         user_phrase_strength.save()
 
+        # TODO - delete after testing.
+        print(
+            user_phrase_strength.phrase.phrase,
+            "Score", best_score,
+            "Strength", user_phrase_strength.strength
+        )
+        
         # Store data in session for feedback view and increment test count
         test_count = request.session['test_count'] + 1
         request.session.update({
@@ -720,6 +764,13 @@ class ReviewView(LoginRequiredMixin, View):
                 (user_phrase_strength.views - user_phrase_strength.correct)
             ) * 100) / user_phrase_strength.views
         user_phrase_strength.save()
+
+        # TODO - delete after testing.
+        print(
+            user_phrase_strength.phrase.phrase,
+            "Score", best_score,
+            "Strength", user_phrase_strength.strength
+        )
 
         # Store data in session for feedback view and increment test count
         test_count = request.session['test_count'] + 1
@@ -844,6 +895,13 @@ class AccentView(LoginRequiredMixin, View):
             ) * 100) / user_phrase_strength.views
         user_phrase_strength.save()
 
+        # TODO - delete after testing.
+        print(
+            user_phrase_strength.phrase.phrase,
+            "Score", best_score,
+            "Errors", least_errors,
+            "Strength", user_phrase_strength.strength
+        )
         # Store data in session for feedback view and increment test count
         test_count = request.session['test_count'] + 1
         request.session.update({
