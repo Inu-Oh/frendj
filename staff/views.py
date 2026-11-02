@@ -939,7 +939,7 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
         print(f"Modules added: {added_modules}\nPhrases added: {added_phrases}")
         print(f"Phrases edited: {edited_phrases}\nStrength objects added: {added_strength_objs}")
         print(f"Translations deleted: {deleted_translations}")
-        print(f"Translations edited: {edited_translations}")
+        print(f"Translation sets edited: {edited_translations}")
         print(f"Translations added for newly added phrases: {added_translations}")
 
                
