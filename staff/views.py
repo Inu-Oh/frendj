@@ -940,7 +940,7 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
         print(f"Phrases edited: {edited_phrases}\nStrength objects added: {added_strength_objs}")
         print(f"Translations deleted: {deleted_translations}")
         print(f"Translations edited: {edited_translations}")
-        print(f"Translations added for newly addedd phrases: {added_translations}")
+        print(f"Translations added for newly added phrases: {added_translations}")
 
                
         """The final loop writes a new copy of the database to CSV"""
