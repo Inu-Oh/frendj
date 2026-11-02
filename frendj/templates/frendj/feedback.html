@@ -25,26 +25,13 @@
                     Error with feedback on testing phrase
                 {% else %}
                     <div>   
-                        <small class="text-muted small">
-                            Test phrase ({{ phrase.language }})
-                        </small>
+                        <small class="text-muted small">Test phrase ({{ phrase.language }})</small>
                         <p class="fs-4 lh-sm">{{ phrase }}</p>
                     </div>
                     <div>&nbsp;</div>
                     <div> 
-                        <small class="text-muted small">
-                            {% if translations|length == 1 %}
-                                Translation
-                            {% else %}
-                                Translations
-                            {% endif %} 
-                            ({{ translations.0.language }})
-                        </small>
-                        {% for translation in translations %}
-                            <p class="fs-4 lh-sm mb-1">
-                                {{ translation.translation }}&nbsp;
-                            </p>
-                        {% endfor %}
+                        <small class="text-muted small">Translation ({{ translations.0.language }})</small>
+                        <p class="fs-4 lh-sm mb-1">{{ matched_translation }}</p>
                     </div>
                 {% endif %}
             </div>
@@ -80,7 +67,6 @@
 
 
 {% block script %}
-
 <script>
 $(document).ready(function() {
     $(document).on('keydown', function(e) {

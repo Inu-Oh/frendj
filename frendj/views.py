@@ -202,7 +202,7 @@ def match_answer(form, translations):
     
     feedback_html = feedback(raw_answer, best_translation, least_errors, best_score)
 
-    return best_score, feedback_html
+    return best_score, feedback_html, best_translation
 
 
 class Home(LoginRequiredMixin, TemplateView):
@@ -227,8 +227,9 @@ class Home(LoginRequiredMixin, TemplateView):
         
         # Delete session data from exercises if it exists
         session_data_keys = ['phrase', 'module_id', 'xp_reward', 'response_accuracy', 
-            'user_phrase_strength_id', 'phrase_language', 'feedback_html', 'testing_view']
-        clear_data_from_session(request,*session_data_keys)
+            'user_phrase_strength_id', 'phrase_language', 'feedback_html',
+            'matched_translation', 'testing_view']
+        clear_data_from_session(request, *session_data_keys)
         # Test count for Practice, Review and Accent Quiz views is set here, incremented
         # and deleted in respective Quiz view. This circumvents Django bug that fails to delete session data.
         request.session.update({
@@ -534,7 +535,7 @@ class LearnView(LoginRequiredMixin, View):
             }
             return render(request, self.template_name, context)
 
-        best_score, feedback_html = match_answer(form, translations)
+        best_score, feedback_html, matched_translation = match_answer(form, translations)
 
         # If evaluation passes 90%, add points to user profile and raise user phrase strength
         user_phrase_strength.learned = True
@@ -563,6 +564,7 @@ class LearnView(LoginRequiredMixin, View):
             'testing_view': 'frendj:learn',
             'feedback_html': feedback_html,
             'xp_reward': PLUS_5_XP,
+            'matched_translation': matched_translation,
         })
 
         # Redirect to feedback if post succeeds
@@ -638,7 +640,7 @@ class PracticeView(LoginRequiredMixin, View):
             }
             return render(request, self.template_name, context)
 
-        best_score, feedback_html = match_answer(form, translations)
+        best_score, feedback_html, matched_translation = match_answer(form, translations)
 
         # Increment views. Add points if score passes and update user profile and phrase strength
         user_phrase_strength.views += 1
@@ -671,6 +673,7 @@ class PracticeView(LoginRequiredMixin, View):
             'feedback_html': feedback_html,
             'xp_reward': PLUS_5_XP,
             'test_count': test_count,
+            'matched_translation': matched_translation,
         })
 
         # Redirect to feedback if post succeeds
@@ -747,7 +750,7 @@ class ReviewView(LoginRequiredMixin, View):
             }
             return render(request, self.template_name, context)
 
-        best_score, feedback_html = match_answer(form, translations)
+        best_score, feedback_html, matched_translation = match_answer(form, translations)
 
         # Increment views. Add points if score passes and update user profile and phrase strength
         user_phrase_strength.views += 1
@@ -780,6 +783,7 @@ class ReviewView(LoginRequiredMixin, View):
             'feedback_html': feedback_html,
             'xp_reward': PLUS_5_XP,
             'test_count': test_count,
+            'matched_translation': matched_translation,
         })
 
         # Redirect to feedback if post succeeds
@@ -884,6 +888,7 @@ class AccentView(LoginRequiredMixin, View):
 
         if matched_translation is None:
             matched_translation = translations[0].translation
+        request.session['matched_translation'] = matched_translation
         
         feedback_html = feedback(raw_answer, matched_translation, least_errors, best_score)
       
@@ -966,6 +971,7 @@ class FeedbackView(LoginRequiredMixin, View):
             result = choice(wrong)
 
         context = {
+            
             'testing_view': testing_view,
             'profile': profile,
             'phrase': phrase,
@@ -975,6 +981,7 @@ class FeedbackView(LoginRequiredMixin, View):
             'feedback_html': feedback_html,
             'xp_reward': xp_reward,
             'translations': phrase.phrase_translations.all(),
+            'matched_translation': request.session['matched_translation'],
             'test_count': f"Card {request.session['test_count'] - 1} of {QUIZ_LENGTH}",
             'learned_count': learned_count,
             'unlearned_count': unlearned_count,
