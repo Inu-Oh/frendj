@@ -467,8 +467,8 @@ class LearnView(LoginRequiredMixin, View):
 
     def get(self, request, pk):
         # Clear session data for previously tested phrase if present
-        prev_card_sess_keys = ['phrase', 'user_phrase_strength_id', 'raw_answer',
-            'response_accuracy', 'phrase_language', 'feedback_html', 'xp_reward']
+        prev_card_sess_keys = ['user_phrase_strength_id', 'phrase_id', 
+            'response_accuracy', 'feedback_html', 'xp_reward', 'matched_translation']
         clear_data_from_session(request,*prev_card_sess_keys)
 
         # Get data for current phrase to test and context
@@ -589,8 +589,8 @@ class PracticeView(LoginRequiredMixin, View):
             return end_quiz(request, self.__class__.__name__[:-4])
 
         # Clear session data for previously tested phrase if present
-        prev_card_sess_keys = ['phrase', 'raw_answer', 'response_accuracy', 
-                                'phrase_language', 'feedback_html', 'xp_reward']
+        prev_card_sess_keys = ['phrase_id', 'response_accuracy', 'feedback_html',
+                               'xp_reward', 'matched_translation']
         clear_data_from_session(request,*prev_card_sess_keys)
 
         # Select question or redirect if not abailable. Add context.
@@ -698,8 +698,8 @@ class ReviewView(LoginRequiredMixin, View):
             return end_quiz(request, self.__class__.__name__[:-4])
             
         # Clear session data for previously tested phrase if present
-        prev_card_sess_keys = ['phrase', 'raw_answer', 'response_accuracy', 
-                                'phrase_language', 'feedback_html', 'xp_reward']
+        prev_card_sess_keys = ['phrase_id', 'response_accuracy', 'feedback_html',
+                               'xp_reward', 'matched_translation']
         clear_data_from_session(request,*prev_card_sess_keys)
 
         # Select question or redirect if not abailable. Add context.
@@ -808,8 +808,8 @@ class AccentView(LoginRequiredMixin, View):
             return end_quiz(request, self.__class__.__name__[:-4])
 
         # Clear session data for previously tested phrase if present
-        prev_card_sess_keys = ['phrase', 'user_phrase_strength_id', 'raw_answer',
-            'response_accuracy', 'phrase_language', 'feedback_html', 'xp_reward']
+        prev_card_sess_keys = ['user_phrase_strength_id', 'phrase_id', 
+            'response_accuracy', 'feedback_html', 'xp_reward', 'matched_translation']
         clear_data_from_session(request,*prev_card_sess_keys)
 
         profile = Profile.objects.get(user=request.user)
@@ -888,7 +888,6 @@ class AccentView(LoginRequiredMixin, View):
 
         if matched_translation is None:
             matched_translation = translations[0].translation
-        request.session['matched_translation'] = matched_translation
         
         feedback_html = feedback(raw_answer, matched_translation, least_errors, best_score)
       
@@ -915,6 +914,7 @@ class AccentView(LoginRequiredMixin, View):
             'feedback_html': feedback_html,
             'xp_reward': PLUS_9_XP,
             'test_count': test_count,
+            'matched_translation': matched_translation,
         })
 
         # Redirect to feedback if post succeeds
