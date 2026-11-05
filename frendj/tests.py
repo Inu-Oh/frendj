@@ -419,7 +419,7 @@ class ResetViewTestCase(TestCase):
 class FeedbackTestCase(TestCase):
 
     def test_highlights_extra_answer_character(self):
-        result = feedback("stresse", "stress", error_count=1, translation_score=92)
+        result = feedback("stresse", "stress")
 
         self.assertEqual(
             str(result),
@@ -431,23 +431,20 @@ class FeedbackTestCase(TestCase):
         result = feedback(
             "The quik, brown fox jump over lazy dog!",
             "The quick, brown fox jumps over the lazy dog!",
-            error_count=3,
-            translation_score=80,
         )
-
+        print(result)
         self.assertEqual(
             str(result),
             '<span class="text-success">The '
             '<span class="text-danger">quik</span>, brown fox '
-            '<span class="text-danger">jump</span> over lazy dog!</span>',
+            '<span class="text-danger">jump</span> over '
+            '<span class="text-danger">the</span> lazy dog!</span>',
         )
 
     def test_highlights_wrong_word_when_reference_has_extra_character(self):
         result = feedback(
             "Ils font un salade.",
             "Ils font une salade.",
-            error_count=1,
-            translation_score=95,
         )
 
         self.assertEqual(
@@ -456,12 +453,35 @@ class FeedbackTestCase(TestCase):
             '<span class="text-danger">un</span> salade.</span>',
         )
 
+    def test_highlights_missing_word_in_translation(self):
+        result = feedback(
+            "I eat apple",
+            "I eat an apple",
+        )
+
+        self.assertEqual(
+            str(result),
+            '<span class="text-success">I eat '
+            '<span class="text-danger">an</span> apple</span>',
+        )
+
+    def test_highlights_missing_words_at_start_and_end(self):
+        result = feedback(
+            "eat",
+            "I eat food",
+        )
+
+        self.assertEqual(
+            str(result),
+            '<span class="text-success">'
+            '<span class="text-danger">I</span> eat '
+            '<span class="text-danger">food</span></span>',
+        )
+
     def test_highlights_incorrect_apostrophe(self):
         result = feedback(
             "Don't make fun of me.",
             "Do not make fun of me.",
-            error_count=2,
-            translation_score=90,
         )
 
         self.assertIn(

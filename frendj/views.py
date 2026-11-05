@@ -50,124 +50,151 @@ def eval_answer(raw_answer: str, correct_translation: str) -> tuple[float, int]:
     matcher = SequenceMatcher(None, a=answer, b=reference)
     score = matcher.ratio() * 100
 
-    error_count = 0
-    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
-        if tag == "replace":
-            error_count += max(i2 - i1, j2 - j1)
-        elif tag == "delete":
-            error_count += i2 - i1
-        elif tag == "insert":
-            error_count += j2 - j1
+    # error_count = 0 # TODO Reincorporate into score or delete
+    # for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+    #     if tag == "replace":
+    #         error_count += max(i2 - i1, j2 - j1)
+    #     elif tag == "delete":
+    #         error_count += i2 - i1
+    #     elif tag == "insert":
+    #         error_count += j2 - j1
 
-    return score, error_count
+    return score
 
 
 def feedback(
         raw_answer: str, 
-        correct_translation: str, 
-        error_count: int, 
-        translation_score: float
+        correct_translation: str
     ) -> str:
     """
     Generates HTML style tags to provide better feedback on translation accuracy.
     Used for learn, practice and review exercise view classes.
     """
-
-    # Return no feedback for correct answers
-    if translation_score >= 100 and error_count <= 0:
-        return format_html('<span class="text-success">{}</span>', raw_answer) 
-    # Full feedback string is red if too many errors
-    elif translation_score < 50 or error_count >= 6: 
-        return format_html('<span class="text-danger">{}</span>', raw_answer) 
-    else: # Highlight misspelled words
-        display_answer = html.unescape(raw_answer)
-        reference_text = html.unescape(correct_translation)
-        answer_matches = list(re.finditer(r"\w+", display_answer))
-        answer = [match.group().casefold() for match in answer_matches]
-        reference = re.findall(r"\w+", reference_text.casefold())
-
-        punctuation_errors = set()
-        punctuation_matcher = SequenceMatcher(
-            None, display_answer, reference_text, autojunk=False
-        )
-        for tag, i1, i2, _, _ in punctuation_matcher.get_opcodes():
-            if tag in {"replace", "delete"}:
-                punctuation_errors.update(
-                    index
-                    for index in range(i1, i2)
-                    if unicodedata.category(display_answer[index]).startswith("P")
-                )
-
-        distances = [
-            [0] * (len(reference) + 1)
-            for _ in range(len(answer) + 1)
-        ]
-        for i in range(len(answer) + 1):
-            distances[i][0] = i
-        for j in range(len(reference) + 1):
-            distances[0][j] = j
-        for i, word in enumerate(answer, start=1):
-            for j, expected in enumerate(reference, start=1):
-                distances[i][j] = min(
-                    distances[i - 1][j] + 1,
-                    distances[i][j - 1] + 1,
-                    distances[i - 1][j - 1] + (word != expected),
-                )
-
-        misspelled = set()
-        i, j = len(answer), len(reference)
-        while i or j:
-            if (
-                i and j and answer[i - 1] == reference[j - 1]
-                and distances[i][j] == distances[i - 1][j - 1]
-            ):
-                i -= 1
-                j -= 1
-            elif (
-                i and j
-                and distances[i][j] == distances[i - 1][j - 1] + 1
-            ):
-                misspelled.add(i - 1)
-                i -= 1
-                j -= 1
-            elif i and distances[i][j] == distances[i - 1][j] + 1:
-                misspelled.add(i - 1)
-                i -= 1
-            else:
-                j -= 1
-
-        parts = []
-
-        def append_segment(start: int, end: int) -> None:
-            segment_start = start
-            for index in range(start, end):
-                if index in punctuation_errors:
-                    if segment_start < index:
-                        parts.append(display_answer[segment_start:index])
-                    parts.append(
-                        format_html(
-                            '<span class="text-danger">{}</span>',
-                            display_answer[index],
-                        )
-                    )
-                    segment_start = index + 1
-            if segment_start < end:
-                parts.append(display_answer[segment_start:end])
-
-        position = 0
-        for index, match in enumerate(answer_matches):
-            append_segment(position, match.start())
-            word = display_answer[match.start():match.end()]
-            if index in misspelled:
+    # Append answer text, highlighting punctuation errors.
+    def append_segment(start: int, end: int) -> None:
+        segment_start = start
+        for index in range(start, end):
+            if index in punctuation_errors:
+                if segment_start < index:
+                    parts.append(display_answer[segment_start:index])
                 parts.append(
-                    format_html('<span class="text-danger">{}</span>', word)
+                    format_html(
+                        '<span class="text-danger">{}</span>',
+                        display_answer[index],
+                    )
                 )
-            else:
-                parts.append(word)
-            position = match.end()
-        append_segment(position, len(display_answer))
-        html_str = format_html_join("", "{}", ((part,) for part in parts))
-        return format_html('<span class="text-success">{}</span>', html_str)
+                segment_start = index + 1
+        if segment_start < end:
+            parts.append(display_answer[segment_start:end])
+
+    def append_missing_words(answer_index: int, *, at_end: bool = False) -> None:
+        expected_indices = missing.get(answer_index, [])
+        if not expected_indices:
+            return
+
+        if at_end:
+            parts.append(" ")
+
+        for offset, expected_index in enumerate(expected_indices):
+            if offset:
+                parts.append(" ")
+            parts.append(
+                format_html(
+                    '<span class="text-danger">{}</span>',
+                    reference_matches[expected_index].group(),
+                )
+            )
+
+        if not at_end:
+            parts.append(" ")
+
+    # Highlight misspelled and missing words
+    display_answer = html.unescape(raw_answer)
+    reference_text = html.unescape(correct_translation)
+    answer_matches = list(re.finditer(r"\w+", display_answer))
+    answer = [match.group().casefold() for match in answer_matches]
+
+    # Keep original spelling and capitalization for displaying missed words.
+    reference_matches = list(re.finditer(r"\w+", reference_text))
+    reference = [match.group().casefold() for match in reference_matches]
+
+    # Mark punctuation differences in the user's answer.
+    punctuation_errors = set()
+    punctuation_matcher = SequenceMatcher(
+        None, display_answer, reference_text, autojunk=False
+    )
+    for tag, i1, i2, _, _ in punctuation_matcher.get_opcodes():
+        if tag in {"replace", "delete"}:
+            punctuation_errors.update(
+                index
+                for index in range(i1, i2)
+                if unicodedata.category(display_answer[index]).startswith("P")
+            )
+
+    # Build edit-distance costs for aligning answer and reference words.
+    distances = [
+        [0] * (len(reference) + 1)
+        for _ in range(len(answer) + 1)
+    ]
+    for i in range(len(answer) + 1):
+        distances[i][0] = i
+    for j in range(len(reference) + 1):
+        distances[0][j] = j
+    for i, word in enumerate(answer, start=1):
+        for j, expected in enumerate(reference, start=1):
+            distances[i][j] = min(
+                distances[i - 1][j] + 1,
+                distances[i][j - 1] + 1,
+                distances[i - 1][j - 1] + (word != expected),
+            )
+
+    # Trace the cheapest alignment, marking wrong and missing words.
+    misspelled = set()
+    missing = {}
+    i, j = len(answer), len(reference)
+    while i or j:
+        if (
+            i and j and answer[i - 1] == reference[j - 1]
+            and distances[i][j] == distances[i - 1][j - 1]
+        ):
+            i -= 1
+            j -= 1
+        elif (
+            i and j
+            and distances[i][j] == distances[i - 1][j - 1] + 1
+        ):
+            misspelled.add(i - 1)
+            i -= 1
+            j -= 1
+        elif i and distances[i][j] == distances[i - 1][j] + 1:
+            misspelled.add(i - 1)
+            i -= 1
+        else:
+            missing.setdefault(i, []).append(j - 1)
+            j -= 1
+
+    for reference_indices in missing.values():
+        reference_indices.sort()
+
+    parts = []
+
+    # Render the answer and insert missing reference words in red.
+    position = 0
+    for index, match in enumerate(answer_matches):
+        append_segment(position, match.start())
+        append_missing_words(index)
+        word = display_answer[match.start():match.end()]
+        if index in misspelled:
+            parts.append(
+                format_html('<span class="text-danger">{}</span>', word)
+            )
+        else:
+            parts.append(word)
+        position = match.end()
+    append_segment(position, len(display_answer))
+    append_missing_words(len(answer), at_end=True)
+    html_str = format_html_join("", "{}", ((part,) for part in parts))
+    return format_html('<span class="text-success">{}</span>', html_str)
 
 
 def end_quiz(request, quiz_name) -> HttpResponseRedirect:
@@ -185,22 +212,18 @@ def match_answer(form, translations):
     raw_answer = form.cleaned_data['answer'].strip()
     best_translation = None
     best_score = UNASSESSED_SCORE
-    least_errors = MAX_ERRORS
 
     # Evaluate the user's answer against all translations and generate feedback
     for translation in translations:
-        current_score, current_errors = eval_answer(
-            raw_answer, translation.translation
-        )
+        current_score = eval_answer(raw_answer, translation.translation)
         if current_score > best_score:
             best_score = current_score
-            least_errors = current_errors
             best_translation = translation.translation
         
     if best_translation is None:
         best_translation = translations[0]
     
-    feedback_html = feedback(raw_answer, best_translation, least_errors, best_score)
+    feedback_html = feedback(raw_answer, best_translation)
 
     return best_score, feedback_html, best_translation
 
@@ -867,12 +890,11 @@ class AccentView(LoginRequiredMixin, View):
         normalized_answer = raw_answer.translate(str.maketrans("", "", string.punctuation))
         matched_translation = None
         best_score = UNASSESSED_SCORE
-        least_errors = MAX_ERRORS
 
         # Check answer for perfect match against all translations, update profile points and ge5 feedback
         for translation in translations:
             test_translation = translation.translation.translate(str.maketrans("", "", string.punctuation))
-            score, errors = eval_answer(normalized_answer.lower(), test_translation.lower())
+            score = eval_answer(normalized_answer.lower(), test_translation.lower())
             if normalized_answer == test_translation:
                 user_phrase_strength.correct += 1
                 profile.xp += PLUS_9_XP
@@ -884,12 +906,11 @@ class AccentView(LoginRequiredMixin, View):
                 response_accuracy = False
             if score > best_score:
                 best_score = score
-                least_errors = errors
 
         if matched_translation is None:
             matched_translation = translations[0].translation
         
-        feedback_html = feedback(raw_answer, matched_translation, least_errors, best_score)
+        feedback_html = feedback(raw_answer, matched_translation)
       
         # Adjust and save the user's phrase views and score
         user_phrase_strength.views += 1
@@ -903,7 +924,6 @@ class AccentView(LoginRequiredMixin, View):
         print(
             user_phrase_strength.phrase.phrase,
             "Score", best_score,
-            "Errors", least_errors,
             "Strength", user_phrase_strength.strength
         )
         # Store data in session for feedback view and increment test count
