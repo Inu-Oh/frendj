@@ -93,9 +93,9 @@
 
 {% block script %}
 <script>
-document.querySelectorAll('.csv-processing-form').forEach((form) => {
-    form.addEventListener('submit', () => {
-        document.getElementById('csv-loading-overlay').classList.remove('d-none');
+$(document).ready(function() {
+    $('.csv-processing-form').on('submit', function() {
+        $('#csv-loading-overlay').removeClass('d-none')
     });
 });
 </script>

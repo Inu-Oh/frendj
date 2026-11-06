@@ -652,6 +652,7 @@ class BlocksView(LoginRequiredMixin, View):
     def post(self, request, pk):
         pass
 
+
 class PracticeView(LoginRequiredMixin, View):
     """
     Test form. Prompts user to translate phrases one at a time. Selects user's
