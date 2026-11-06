@@ -87,36 +87,15 @@ def feedback(
         if segment_start < end:
             parts.append(display_answer[segment_start:end])
 
-    def append_missing_words(answer_index: int, *, at_end: bool = False) -> None:
-        expected_indices = missing.get(answer_index, [])
-        if not expected_indices:
-            return
-
-        if at_end:
-            parts.append(" ")
-
-        for offset, expected_index in enumerate(expected_indices):
-            if offset:
-                parts.append(" ")
-            parts.append(
-                format_html(
-                    '<span class="text-danger bg-warning rounded px-1">{}</span>',
-                    reference_matches[expected_index].group(),
-                )
-            )
-
-        if not at_end:
-            parts.append(" ")
-
     # Highlight misspelled and missing words
     display_answer = html.unescape(raw_answer)
     reference_text = html.unescape(correct_translation)
     answer_matches = list(re.finditer(r"\w+", display_answer))
     answer = [match.group().casefold() for match in answer_matches]
-
-    # Keep original spelling and capitalization for displaying missed words.
-    reference_matches = list(re.finditer(r"\w+", reference_text))
-    reference = [match.group().casefold() for match in reference_matches]
+    reference = [
+        match.group().casefold()
+        for match in re.finditer(r"\w+", reference_text)
+    ]
 
     # Mark punctuation and symbol differences in the user's answer.
     punctuation_errors = set()
@@ -150,7 +129,7 @@ def feedback(
 
     # Trace the cheapest alignment, marking wrong and missing words.
     misspelled = set()
-    missing = {}
+    has_missing_words = False
     i, j = len(answer), len(reference)
     while i or j:
         if (
@@ -170,19 +149,18 @@ def feedback(
             misspelled.add(i - 1)
             i -= 1
         else:
-            missing.setdefault(i, []).append(j - 1)
+            has_missing_words = True
             j -= 1
 
-    for reference_indices in missing.values():
-        reference_indices.sort()
+    if has_missing_words:
+        return format_html('<span class="text-danger">{}</span>', display_answer)
 
     parts = []
 
-    # Render the answer and insert missing reference words in red.
+    # Render the answer, highlighting misspelled words and punctuation errors.
     position = 0
     for index, match in enumerate(answer_matches):
         append_segment(position, match.start())
-        append_missing_words(index)
         word = display_answer[match.start():match.end()]
         if index in misspelled:
             parts.append(
@@ -191,7 +169,6 @@ def feedback(
         else:
             parts.append(word)
         position = match.end()
-    append_missing_words(len(answer), at_end=True)
     append_segment(position, len(display_answer))
     html_str = format_html_join("", "{}", ((part,) for part in parts))
     return format_html('<span class="text-success">{}</span>', html_str)

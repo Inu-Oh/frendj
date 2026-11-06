@@ -430,15 +430,13 @@ class FeedbackTestCase(TestCase):
     def test_highlights_misspelled_words_and_preserves_punctuation(self):
         result = feedback(
             "The quik, brown fox jump over lazy dog!",
-            "The quick, brown fox jumps over the lazy dog!",
+            "The quick, brown fox jumps over lazy dog!",
         )
         self.assertEqual(
             str(result),
             '<span class="text-success">The '
             '<span class="text-danger">quik</span>, brown fox '
-            '<span class="text-danger">jump</span> over '
-            '<span class="text-danger bg-warning rounded px-1">the</span> '
-            'lazy dog!</span>',
+            '<span class="text-danger">jump</span> over lazy dog!</span>',
         )
 
     def test_highlights_wrong_word_when_reference_has_extra_character(self):
@@ -453,7 +451,7 @@ class FeedbackTestCase(TestCase):
             '<span class="text-danger">un</span> salade.</span>',
         )
 
-    def test_highlights_missing_word_in_translation(self):
+    def test_returns_full_answer_in_red_when_a_word_is_missing(self):
         result = feedback(
             "I eat apple",
             "I eat an apple",
@@ -461,23 +459,18 @@ class FeedbackTestCase(TestCase):
 
         self.assertEqual(
             str(result),
-            '<span class="text-success">I eat '
-            '<span class="text-danger bg-warning rounded px-1">an</span> '
-            'apple</span>',
+            '<span class="text-danger">I eat apple</span>',
         )
 
-    def test_highlights_consecutive_missing_words_in_translation_order(self):
+    def test_returns_full_answer_in_red_when_consecutive_words_are_missing(self):
         result = feedback("I saw apple", "I saw a red apple")
 
         self.assertEqual(
             str(result),
-            '<span class="text-success">I saw '
-            '<span class="text-danger bg-warning rounded px-1">a</span> '
-            '<span class="text-danger bg-warning rounded px-1">red</span> '
-            'apple</span>',
+            '<span class="text-danger">I saw apple</span>',
         )
 
-    def test_highlights_missing_words_at_start_and_end(self):
+    def test_returns_full_answer_in_red_when_words_at_start_and_end_are_missing(self):
         result = feedback(
             "eat",
             "I eat food",
@@ -485,13 +478,10 @@ class FeedbackTestCase(TestCase):
 
         self.assertEqual(
             str(result),
-            '<span class="text-success">'
-            '<span class="text-danger bg-warning rounded px-1">I</span> '
-            'eat <span class="text-danger bg-warning rounded px-1">food</span>'
-            '</span>',
+            '<span class="text-danger">eat</span>',
         )
 
-    def test_inserts_missing_final_word_before_period(self):
+    def test_returns_full_answer_in_red_when_final_word_is_missing(self):
         result = feedback(
             "You have such a beautiful.",
             "You have such a beautiful name.",
@@ -499,9 +489,19 @@ class FeedbackTestCase(TestCase):
 
         self.assertEqual(
             str(result),
-            '<span class="text-success">You have such a beautiful '
-            '<span class="text-danger bg-warning rounded px-1">name</span>.'
-            '</span>',
+            '<span class="text-danger">You have such a beautiful.</span>',
+        )
+
+    def test_returns_full_answer_in_red_for_translation_with_different_missing_words(self):
+        result = feedback(
+            "Nowadays nobody can imagine life without TV.",
+            "These days no one can imagine a life without TV.",
+        )
+
+        self.assertEqual(
+            str(result),
+            '<span class="text-danger">'
+            'Nowadays nobody can imagine life without TV.</span>',
         )
 
     def test_highlights_incorrect_apostrophe(self):
