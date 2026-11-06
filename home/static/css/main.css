@@ -9,6 +9,11 @@ body {
     background-color: var(--body_bg) !important;
     user-select: none
 }
+
+.bg-page {
+    background-color: var(--body_bg) !important;
+}
+
 /* TODO - is the nonav class still needed - delete */
 .nonav {
     background-color: var(--body_bg) !important;

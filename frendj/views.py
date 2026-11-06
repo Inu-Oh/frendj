@@ -251,7 +251,7 @@ class Home(LoginRequiredMixin, TemplateView):
         # Delete session data from exercises if it exists
         session_data_keys = ['phrase', 'module_id', 'xp_reward', 'response_accuracy', 
             'user_phrase_strength_id', 'phrase_language', 'feedback_html',
-            'matched_translation', 'testing_view']
+            'matched_translation', 'testing_view', 'phrase_count', 'module_strength']
         clear_data_from_session(request, *session_data_keys)
         # Test count for Practice, Review and Accent Quiz views is set here, incremented
         # and deleted in respective Quiz view. This circumvents Django bug that fails to delete session data.
@@ -515,7 +515,11 @@ class LearnView(LoginRequiredMixin, View):
         # Select random unlearned phrase for testing. Save to session for access in POST
         if counts['unlearned'] > 0:
             user_phrase_strength = user_phrase_data.filter(learned=False).order_by('?').first() 
-            request.session['user_phrase_strength_id'] = user_phrase_strength.id
+            request.session.update({
+                'user_phrase_strength_id': user_phrase_strength.id,
+                'phrase_count':counts['total'],
+                'module_strength': avg_strength,
+            }) 
             module_progress = round(
                 (counts['learned'] / counts['total']) * 100 
             ) if counts['total'] > 0 else 0
@@ -992,7 +996,6 @@ class FeedbackView(LoginRequiredMixin, View):
             result = choice(wrong)
 
         context = {
-            
             'testing_view': testing_view,
             'profile': profile,
             'phrase': phrase,
@@ -1007,6 +1010,8 @@ class FeedbackView(LoginRequiredMixin, View):
             'learned_count': learned_count,
             'unlearned_count': unlearned_count,
             'progress': progress,
+            'phrase_count': request.session['phrase_count'],
+            'module_strength': request.session['module_strength'],
             'result': result,
         }
         return render(request, self.template_name, context)
