@@ -53,7 +53,8 @@
                     Phrases that will be changed: {{ changed }}</p>
                 {% if changed > 0 or new > 0 %}
                     {% load crispy_forms_tags %}
-                    <form action="" method="post" enctype="multipart/form-data">
+                    <form action="" method="post" enctype="multipart/form-data"
+                        class="csv-processing-form">
                         {% csrf_token %}
                         {{ submit_form|crispy }}
                         <input type="submit" value="Submit"
@@ -72,6 +73,13 @@
         </div>
     {% endif %}
 </div>
+<div id="csv-loading-overlay" class="csv-loading-overlay d-none"
+    role="status" aria-live="polite" aria-label="Processing CSV">
+    <div class="text-center">
+        <div class="spinner-border text-success" aria-hidden="true"></div>
+        <p class="mt-2 mb-0 fw-semibold">Processing CSV...</p>
+    </div>
+</div>
 {% endblock content %}
 
 
@@ -81,3 +89,14 @@
 </div>
 
 {% endblock footer %}
+
+
+{% block script %}
+<script>
+document.querySelectorAll('.csv-processing-form').forEach((form) => {
+    form.addEventListener('submit', () => {
+        document.getElementById('csv-loading-overlay').classList.remove('d-none');
+    });
+});
+</script>
+{% endblock script %}
