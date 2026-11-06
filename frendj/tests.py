@@ -432,13 +432,13 @@ class FeedbackTestCase(TestCase):
             "The quik, brown fox jump over lazy dog!",
             "The quick, brown fox jumps over the lazy dog!",
         )
-        print(result)
         self.assertEqual(
             str(result),
             '<span class="text-success">The '
             '<span class="text-danger">quik</span>, brown fox '
             '<span class="text-danger">jump</span> over '
-            '<span class="text-danger">the</span> lazy dog!</span>',
+            '<span class="text-danger bg-warning rounded px-1">the</span> '
+            'lazy dog!</span>',
         )
 
     def test_highlights_wrong_word_when_reference_has_extra_character(self):
@@ -462,7 +462,19 @@ class FeedbackTestCase(TestCase):
         self.assertEqual(
             str(result),
             '<span class="text-success">I eat '
-            '<span class="text-danger">an</span> apple</span>',
+            '<span class="text-danger bg-warning rounded px-1">an</span> '
+            'apple</span>',
+        )
+
+    def test_highlights_consecutive_missing_words_in_translation_order(self):
+        result = feedback("I saw apple", "I saw a red apple")
+
+        self.assertEqual(
+            str(result),
+            '<span class="text-success">I saw '
+            '<span class="text-danger bg-warning rounded px-1">a</span> '
+            '<span class="text-danger bg-warning rounded px-1">red</span> '
+            'apple</span>',
         )
 
     def test_highlights_missing_words_at_start_and_end(self):
@@ -474,8 +486,22 @@ class FeedbackTestCase(TestCase):
         self.assertEqual(
             str(result),
             '<span class="text-success">'
-            '<span class="text-danger">I</span> eat '
-            '<span class="text-danger">food</span></span>',
+            '<span class="text-danger bg-warning rounded px-1">I</span> '
+            'eat <span class="text-danger bg-warning rounded px-1">food</span>'
+            '</span>',
+        )
+
+    def test_inserts_missing_final_word_before_period(self):
+        result = feedback(
+            "You have such a beautiful.",
+            "You have such a beautiful name.",
+        )
+
+        self.assertEqual(
+            str(result),
+            '<span class="text-success">You have such a beautiful '
+            '<span class="text-danger bg-warning rounded px-1">name</span>.'
+            '</span>',
         )
 
     def test_highlights_incorrect_apostrophe(self):
@@ -486,5 +512,16 @@ class FeedbackTestCase(TestCase):
 
         self.assertIn(
             '<span class="text-danger">&#x27;</span>',
+            str(result),
+        )
+
+    def test_highlights_symbol_used_instead_of_question_mark(self):
+        result = feedback(
+            "Do you have a pen^",
+            "Do you have a pen?",
+        )
+
+        self.assertIn(
+            '<span class="text-danger">^</span>',
             str(result),
         )

@@ -100,7 +100,7 @@ def feedback(
                 parts.append(" ")
             parts.append(
                 format_html(
-                    '<span class="text-danger">{}</span>',
+                    '<span class="text-danger bg-warning rounded px-1">{}</span>',
                     reference_matches[expected_index].group(),
                 )
             )
@@ -118,7 +118,7 @@ def feedback(
     reference_matches = list(re.finditer(r"\w+", reference_text))
     reference = [match.group().casefold() for match in reference_matches]
 
-    # Mark punctuation differences in the user's answer.
+    # Mark punctuation and symbol differences in the user's answer.
     punctuation_errors = set()
     punctuation_matcher = SequenceMatcher(
         None, display_answer, reference_text, autojunk=False
@@ -128,7 +128,7 @@ def feedback(
             punctuation_errors.update(
                 index
                 for index in range(i1, i2)
-                if unicodedata.category(display_answer[index]).startswith("P")
+                if unicodedata.category(display_answer[index]).startswith(("P", "S"))
             )
 
     # Build edit-distance costs for aligning answer and reference words.
@@ -191,8 +191,8 @@ def feedback(
         else:
             parts.append(word)
         position = match.end()
-    append_segment(position, len(display_answer))
     append_missing_words(len(answer), at_end=True)
+    append_segment(position, len(display_answer))
     html_str = format_html_join("", "{}", ((part,) for part in parts))
     return format_html('<span class="text-success">{}</span>', html_str)
 
@@ -507,6 +507,10 @@ class LearnView(LoginRequiredMixin, View):
             total=Count('pk'),
             total_module_strength=Sum('strength'),
         )
+        if counts['total'] > 0 and counts['total_module_strength'] is not None:
+            avg_strength = round(counts['total_module_strength'] / counts['learned'])
+        else:
+            avg_strength = 0
 
         # Select random unlearned phrase for testing. Save to session for access in POST
         if counts['unlearned'] > 0:
@@ -526,13 +530,10 @@ class LearnView(LoginRequiredMixin, View):
                 'unlearned_count': counts['unlearned'],
                 'user_phrase_strength': user_phrase_strength,
                 'module_progress': module_progress,
+                'module_strength': avg_strength,
             }
             return render(request, self.template_name, context)
         else: # If no unlearned phrase is found, redirect to home page with completion message
-            if counts['total'] > 0 and counts['total_module_strength'] is not None:
-                avg_strength = round(counts['total_module_strength'] / counts['total'])
-            else:
-                avg_strength = 0
             msg = f'<h5 class="pb-3">Congrats!</h5><p><b>{module.name.capitalize()}'
             msg += f'</b> module complete</p><p class="fs-4">Grade: {avg_strength}%</p>'
             request.session['module_complete_msg'] = msg
