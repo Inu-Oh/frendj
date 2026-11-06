@@ -13,7 +13,7 @@ from django.views.generic import TemplateView, UpdateView, View, CreateView, Lis
 from datetime import timedelta
 from difflib import SequenceMatcher
 import html
-from random import choice
+from random import choice, randint, shuffle
 from unidecode import unidecode
 import string
 import re
@@ -575,6 +575,82 @@ class LearnView(LoginRequiredMixin, View):
         # Redirect to feedback if post succeeds
         return redirect(reverse_lazy('frendj:feedback'))
 
+
+class BlocksView(LoginRequiredMixin, View):
+    """
+    Test form. Prompts user to reorder scattered set of blocks to form
+    valid translation of phrase.
+    """
+    template_name = 'frendj/blocks.html'
+
+    def get(self, request, pk):
+        # Clear session data for previously tested phrase if present
+        prev_card_sess_keys = ['user_phrase_strength_id', 'phrase_id', 
+            'response_accuracy', 'feedback_html', 'xp_reward', 'matched_translation']
+        clear_data_from_session(request,*prev_card_sess_keys)
+
+        # Get data for current phrase to test and context
+        profile = Profile.objects.get(user=request.user)
+        form = TestForm()
+        module = Module.objects.get(id=pk)
+        user_phrase_data = UserPhraseStrength.objects.filter(
+            user=request.user, phrase__module_id=pk
+        )
+        counts = user_phrase_data.aggregate(
+            unlearned=Count('pk', filter=Q(learned=False)),
+            learned=Count('pk', filter=Q(learned=True)),
+            total=Count('pk'),
+            total_module_strength=Sum('strength'),
+        )
+        if counts['total'] > 0 and counts['total_module_strength'] is not None:
+            avg_strength = round(counts['total_module_strength'] / counts['learned'])
+        else:
+            avg_strength = 0
+
+        # Select random unlearned phrase for testing. Save to session for access in POST
+        if counts['unlearned'] > 0:
+            user_phrase_strength = user_phrase_data.filter(learned=False).order_by('?').first() 
+            translation = user_phrase_strength.phrase.phrase_translations.first()
+            translation_words = re.findall(r"\b[\w']+\b", translation.translation)
+            num = randint(1, 5)
+            if translation.language == "English":
+                pass # TODO install nltk use nltk.corpus wordnet
+            else:
+                pass # TODO install wn WOLF French WordNet
+            # TODO - 1 to 5 words to the list
+            shuffle(translation_words)
+
+            request.session.update({
+                'user_phrase_strength_id': user_phrase_strength.id,
+                'phrase_count': counts['total'],
+                'module_strength': avg_strength,
+            }) 
+            module_progress = round(
+                (counts['learned'] / counts['total']) * 100 
+            ) if counts['total'] > 0 else 0
+
+            context = {
+                'profile': profile,
+                'form': form,
+                'module': module,
+                'phrase': user_phrase_strength.phrase,
+                'translation_words': translation_words,
+                'phrase_count':counts['total'],
+                'learned_count': counts['learned'],
+                'unlearned_count': counts['unlearned'],
+                'user_phrase_strength': user_phrase_strength,
+                'module_progress': module_progress,
+                'module_strength': avg_strength,
+            }
+            return render(request, self.template_name, context)
+        else: # If no unlearned phrase is found, redirect to home page with completion message
+            msg = f'<h5 class="pb-3">Congrats!</h5><p><b>{module.name.capitalize()}'
+            msg += f'</b> module complete</p><p class="fs-4">Grade: {avg_strength}%</p>'
+            request.session['module_complete_msg'] = msg
+            return redirect(reverse_lazy('frendj:modules'))
+
+    def post(self, request, pk):
+        pass
 
 class PracticeView(LoginRequiredMixin, View):
     """

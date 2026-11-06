@@ -1,0 +1,116 @@
+{% extends "base_menu.html" %}
+{% load humanize %}
+
+{% block title %} - Learn New Content{% endblock title %}
+
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <div class="col-8">
+
+            <main class="main container">
+                <div class="d-flex flex-column gap-4">
+
+                    <div class="bg-light p-4 rounded-3 fs-3 border">
+                        <h3 class="text-secondary fs-4">
+                            <i class="fa-regular fa-comment"></i> &nbsp; Translate
+                            <span class="badge bg-secondary">
+                                {% if phrase.language == "French" %}
+                                    French to English
+                                {% else %}
+                                    English to French
+                                {% endif %}
+                            </span>
+                        </h3>
+                    </div>
+
+                    <div class="bg-light p-4 rounded-3 border">
+                        {% if message %}
+                            <p class="text-danger fs-5"><strong>{{ message }}<strong></p>
+                        {% endif %}
+
+                        {% if not phrase %}
+                            <p class="fs-3 py-5">Learn phrases before doing practice</p>
+                        {% else %}
+                            <h1 class="fs-2 py-5 ms-3">{{ phrase }}</h1>
+                        {% endif %}
+                    </div>
+
+                    <div class="bg-light p-4 rounded-3 m-1 border">
+                        <small class="text-muted small">Your answer</small>   
+                        {% load crispy_forms_tags %}
+                        <form action="" method="post" enctype="multipart/form-data" class="">
+                            {% if form.errors %}
+                                <p>There was an error. Please try again.</p>
+                            {% endif %}
+                            {% csrf_token %}
+                            {{ form|crispy }}
+                        </form>
+                    </div>
+
+                    <div>
+                        {% for word in translation_words %}
+                            <button class="btn btn-light">{{ word }}</button>
+                        {% endfor %}
+                    </div>
+                </div>
+            </main>
+
+        </div>
+
+        <div class="col">
+            <aside id="info-pane" class="p-2">
+                <div class="container py-1">
+                    <div class="fs-3 fw-bolder py-2">
+                        <i class="fa-regular fa-user-circle"></i> 
+                        &nbsp; {{ profile.name }} 
+                    </div>
+
+                    <div class="fs-4 pb-3">
+                        <i class="fa-regular fa-star"></i> &nbsp;
+                        <span class="text-muted">XP</span> &nbsp; 
+                        <span class="fw-bold">{{ profile.xp|intcomma }}</span>
+                    </div>
+
+                    <div class="card border-0">
+                        <div class="card-header bg-light border-0 rounded gap-2">
+                            <h2 class="h5 mb-0">{{ module.name|title }}</h2>
+                        </div>
+
+                    </div>
+                    <div class="container p-2">
+                        <div class="d-flex justify-content-between align-items-baseline mb-1">
+                            Cards
+                            <span class="fs-5 fw-semibold">{{ phrase_count }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-baseline">
+                            Module strength
+                            <span class="fs-5 fw-semibold">{{ module_strength }}%</span>
+                        </div>
+                    </div>
+
+                    <div class="p-2">
+                        <label for="prog-bar" class="text-muted small">
+                            Progress &#8226;
+                            {% if learned_count > 0 %}{{ learned_count }} done &#8226; {% endif %}
+                            {{ unlearned_count }} cards to go
+                        </label>
+                        <div class="progress border w-100 position-relative" id="prog-bar">
+                            <div class="progress-bar progress-bar-striped bg-success"
+                                role="progressbar" style="width: {{ module_progress }}%;"
+                                aria-valuenow="{{ module_progress }}" aria-valuemin="0"
+                                aria-valuemax="100" aria-valuetext="{{ module_progress }}%">
+                            </div>
+                            <span class="progress-label {% if module_progress < 50 %}progress-label-low{% else %}progress-label-high{% endif %}">
+                                {{ module_progress }}%
+                            </span>
+                        </div>
+                    </div>
+
+                </div>
+            </aside>
+        </div>
+    </div>
+</div>
+{% endblock content %}

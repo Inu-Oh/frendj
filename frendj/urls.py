@@ -21,6 +21,9 @@ urlpatterns = [
     # Learn new phrases
     path('learn/<int:pk>', views.LearnView.as_view(), name='learn'),
 
+    # Learn phrases joing word blocks
+    path('blocks/<int:pk>', views.BlocksView.as_view(), name='blocks'),
+
     # Practice weakest phrases
     path('practice',views.PracticeView.as_view(), name='practice'),
 
