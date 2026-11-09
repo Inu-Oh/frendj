@@ -1070,7 +1070,7 @@ class FeedbackView(LoginRequiredMixin, View):
         xp_reward = request.session.get('xp_reward')
 
         # Module progress for LearnView only; quiz progress for all the others
-        if testing_view == "frendj:learn":
+        if testing_view in ["frendj:learn", "frendj:blocks"]:
             stats = (
                 Phrase.objects
                     .filter(module_id=phrase.module_id)
