@@ -16,3 +16,4 @@ formatter.py
 formatted_vocab*
 new_vocab.csv
 cb_vocab.csv
+copy_import_data.csv

@@ -584,6 +584,9 @@ class BlocksView(LoginRequiredMixin, View):
     template_name = 'frendj/blocks.html'
 
     def get(self, request, pk):
+        if ('testing_view' not in request.session or 
+            request.session['testing_view'] != 'frendj:blocks'):
+            request.session['testing_view'] = 'frendj:blocks'
         # Clear session data for previously tested phrase if present
         prev_card_sess_keys = ['user_phrase_strength_id', 'phrase_id', 
             'response_accuracy', 'feedback_html', 'xp_reward', 'matched_translation']
@@ -612,12 +615,12 @@ class BlocksView(LoginRequiredMixin, View):
             user_phrase_strength = user_phrase_data.filter(learned=False).order_by('?').first() 
             translation = user_phrase_strength.phrase.phrase_translations.first()
             translation_words = re.findall(r"\b[\w']+\b", translation.translation)
-            num = randint(1, 5)
-            if translation.language == "English":
-                pass # TODO install nltk use nltk.corpus wordnet
-            else:
-                pass # TODO install wn WOLF French WordNet
-            # TODO - 1 to 5 words to the list
+            # num = randint(1, 5)
+            # if translation.language == "English":
+            #     pass # TODO install nltk use nltk.corpus wordnet
+            # else:
+            #     pass # TODO install wn WOLF French WordNet
+            # # TODO - 1 to 5 words to the list
             shuffle(translation_words)
 
             request.session.update({
@@ -650,7 +653,59 @@ class BlocksView(LoginRequiredMixin, View):
             return redirect(reverse_lazy('frendj:modules'))
 
     def post(self, request, pk):
-        pass
+        profile = Profile.objects.get(user=request.user)
+        form = TestForm(request.POST)
+        
+        # Get an unlearned phrase for testing and its translations
+        user_phrase_strength = UserPhraseStrength.objects.get(
+                    id=request.session.get('user_phrase_strength_id')
+                )
+        phrase = user_phrase_strength.phrase
+        translations = phrase.phrase_translations.all()
+ 
+        if not form.is_valid():
+            context = {
+                'profile': profile,
+                'form': form,
+                'user_phrase_strength': user_phrase_strength,
+                'phrase': phrase,
+            }
+            return render(request, self.template_name, context)
+
+        best_score, feedback_html, matched_translation = match_answer(form, translations)
+
+        # If evaluation passes 90%, add points to user profile and raise user phrase strength
+        user_phrase_strength.learned = True
+        user_phrase_strength.views = INITIATE_COUNT
+        if best_score >= 90:
+            user_phrase_strength.correct += 1
+            user_phrase_strength.strength = round(best_score)
+            profile.xp += PLUS_5_XP
+            profile.save()
+            response_accuracy = True
+        else:
+            response_accuracy = False
+        user_phrase_strength.save()
+
+        # TODO - delete after testing.
+        print(
+            user_phrase_strength.phrase.phrase,
+            "Score", best_score,
+            "Strength", user_phrase_strength.strength
+        )
+        
+        # Store data in session for feedback view
+        request.session.update({
+            'phrase_id': user_phrase_strength.phrase.id,
+            'response_accuracy': response_accuracy,
+            'testing_view': 'frendj:blocks',
+            'feedback_html': feedback_html,
+            'xp_reward': PLUS_5_XP,
+            'matched_translation': matched_translation,
+        })
+
+        # Redirect to feedback if post succeeds
+        return redirect(reverse_lazy('frendj:feedback'))
 
 
 class PracticeView(LoginRequiredMixin, View):

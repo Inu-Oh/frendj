@@ -39,19 +39,30 @@
 
                     <div class="bg-light p-4 rounded-3 m-1 border">
                         <small class="text-muted small">Your answer</small>   
-                        {% load crispy_forms_tags %}
-                        <form action="" method="post" enctype="multipart/form-data" class="">
+                        <form id="blocks-answer-form" action="" method="post"
+                            enctype="multipart/form-data">
                             {% if form.errors %}
                                 <p>There was an error. Please try again.</p>
                             {% endif %}
                             {% csrf_token %}
-                            {{ form|crispy }}
+                            {{ form.answer.as_hidden }}
+                            <div id="answer-words"
+                                class="d-flex flex-wrap gap-2 border rounded bg-white p-2 mb-3"
+                                style="min-height: 3.5rem;"
+                                aria-label="Your answer">
+                            </div>
+                            <button type="submit" class="btn btn-primary">
+                                Check answer
+                            </button>
                         </form>
                     </div>
 
-                    <div>
+                    <div id="word-bank" class="d-flex flex-wrap gap-2">
                         {% for word in translation_words %}
-                            <button class="btn btn-light">{{ word }}</button>
+                            <button type="button" class="btn btn-light blocks-word-button"
+                                data-word-index="{{ forloop.counter0 }}" draggable="true">
+                                {{ word }}
+                            </button>
                         {% endfor %}
                     </div>
                 </div>
@@ -114,3 +125,109 @@
     </div>
 </div>
 {% endblock content %}
+
+
+{% block script %}
+<script>
+const answerForm = document.getElementById('blocks-answer-form');
+const answerInput = answerForm.querySelector('input[name="answer"]');
+const answerWords = document.getElementById('answer-words');
+const wordBank = document.getElementById('word-bank');
+
+function syncAnswer() {
+    answerInput.value = [...answerWords.querySelectorAll('.blocks-word-button')]
+        .map((wordButton) => wordButton.textContent.trim())
+        .join(' ');
+}
+
+function returnToWordBank(button) {
+    const buttonIndex = Number(button.dataset.wordIndex);
+    const nextButton = [...wordBank.children].find(
+        (wordButton) => Number(wordButton.dataset.wordIndex) > buttonIndex
+    );
+    wordBank.insertBefore(button, nextButton || null);
+    button.classList.replace('btn-outline-primary', 'btn-light');
+}
+
+document.addEventListener('click', (event) => {
+    const button = event.target.closest('.blocks-word-button');
+    if (!button) return;
+
+    if (button.parentElement === wordBank) {
+        answerWords.appendChild(button);
+        button.classList.replace('btn-light', 'btn-outline-primary');
+        button.focus();
+    } else if (button.parentElement === answerWords) {
+        returnToWordBank(button);
+        button.focus();
+    } else {
+        return;
+    }
+
+    syncAnswer();
+});
+
+document.addEventListener('dragstart', (event) => {
+    const button = event.target.closest('.blocks-word-button');
+    if (!button) return;
+
+    event.dataTransfer.setData('text/plain', button.dataset.wordIndex);
+    event.dataTransfer.effectAllowed = 'move';
+    button.classList.add('opacity-50');
+});
+
+document.addEventListener('dragend', (event) => {
+    const button = event.target.closest('.blocks-word-button');
+    if (button) button.classList.remove('opacity-50');
+});
+
+document.addEventListener('dragover', (event) => {
+    if (event.target.closest('#answer-words, #word-bank')) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+    }
+});
+
+document.addEventListener('drop', (event) => {
+    const destination = event.target.closest('#answer-words, #word-bank');
+    if (!destination) return;
+
+    event.preventDefault();
+    const wordIndex = event.dataTransfer.getData('text/plain');
+    const button = document.querySelector(
+        `.blocks-word-button[data-word-index="${wordIndex}"]`
+    );
+    if (!button) return;
+
+    if (destination === wordBank) {
+        returnToWordBank(button);
+    } else {
+        const targetButton = event.target.closest('.blocks-word-button');
+        if (targetButton && targetButton !== button) {
+            const bounds = targetButton.getBoundingClientRect();
+            const midpointY = bounds.top + bounds.height / 2;
+            const isSameRow = Math.abs(event.clientY - midpointY) <= bounds.height / 2;
+            const isBefore = isSameRow
+                ? event.clientX < bounds.left + bounds.width / 2
+                : event.clientY < midpointY;
+            answerWords.insertBefore(
+                button,
+                isBefore ? targetButton : targetButton.nextSibling
+            );
+        } else {
+            answerWords.appendChild(button);
+        }
+        button.classList.replace('btn-light', 'btn-outline-primary');
+    }
+
+    syncAnswer();
+});
+
+answerForm.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        answerForm.requestSubmit();
+    }
+});
+</script>
+{% endblock script %}
