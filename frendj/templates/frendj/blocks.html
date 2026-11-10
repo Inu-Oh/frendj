@@ -129,105 +129,122 @@
 
 {% block script %}
 <script>
-const answerForm = document.getElementById('blocks-answer-form');
-const answerInput = answerForm.querySelector('input[name="answer"]');
-const answerWords = document.getElementById('answer-words');
-const wordBank = document.getElementById('word-bank');
+$(document).ready(function() {
+    const $answerForm = $('#blocks-answer-form');
+    const $answerInput = $answerForm.find('input[name="answer"]');
+    const $answerWords = $('#answer-words');
+    const $wordBank = $('#word-bank');
 
-function syncAnswer() {
-    answerInput.value = [...answerWords.querySelectorAll('.blocks-word-button')]
-        .map((wordButton) => wordButton.textContent.trim())
-        .join(' ');
-}
-
-function returnToWordBank(button) {
-    const buttonIndex = Number(button.dataset.wordIndex);
-    const nextButton = [...wordBank.children].find(
-        (wordButton) => Number(wordButton.dataset.wordIndex) > buttonIndex
-    );
-    wordBank.insertBefore(button, nextButton || null);
-    button.classList.replace('btn-outline-primary', 'btn-light');
-}
-
-document.addEventListener('click', (event) => {
-    const button = event.target.closest('.blocks-word-button');
-    if (!button) return;
-
-    if (button.parentElement === wordBank) {
-        answerWords.appendChild(button);
-        button.classList.replace('btn-light', 'btn-outline-primary');
-        button.focus();
-    } else if (button.parentElement === answerWords) {
-        returnToWordBank(button);
-        button.focus();
-    } else {
-        return;
+    function syncAnswer() {
+        const $answer = $answerWords.find('.blocks-word-button')
+            .map(function () {
+                return $(this).text().trim();
+            })
+            .get()
+            .join(' ');
+        
+        $answerInput.val($answer);
     }
 
-    syncAnswer();
-});
+    function returnToWordBank(button) {
+        const buttonIndex = Number(button.dataset.wordIndex);
+        const $nextButton = $wordBank.children().filter(function () {
+            return Number(this.dataset.wordIndex) > buttonIndex;
+        }).first();
 
-document.addEventListener('dragstart', (event) => {
-    const button = event.target.closest('.blocks-word-button');
-    if (!button) return;
-
-    event.dataTransfer.setData('text/plain', button.dataset.wordIndex);
-    event.dataTransfer.effectAllowed = 'move';
-    button.classList.add('opacity-50');
-});
-
-document.addEventListener('dragend', (event) => {
-    const button = event.target.closest('.blocks-word-button');
-    if (button) button.classList.remove('opacity-50');
-});
-
-document.addEventListener('dragover', (event) => {
-    if (event.target.closest('#answer-words, #word-bank')) {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = 'move';
-    }
-});
-
-document.addEventListener('drop', (event) => {
-    const destination = event.target.closest('#answer-words, #word-bank');
-    if (!destination) return;
-
-    event.preventDefault();
-    const wordIndex = event.dataTransfer.getData('text/plain');
-    const button = document.querySelector(
-        `.blocks-word-button[data-word-index="${wordIndex}"]`
-    );
-    if (!button) return;
-
-    if (destination === wordBank) {
-        returnToWordBank(button);
-    } else {
-        const targetButton = event.target.closest('.blocks-word-button');
-        if (targetButton && targetButton !== button) {
-            const bounds = targetButton.getBoundingClientRect();
-            const midpointY = bounds.top + bounds.height / 2;
-            const isSameRow = Math.abs(event.clientY - midpointY) <= bounds.height / 2;
-            const isBefore = isSameRow
-                ? event.clientX < bounds.left + bounds.width / 2
-                : event.clientY < midpointY;
-            answerWords.insertBefore(
-                button,
-                isBefore ? targetButton : targetButton.nextSibling
-            );
+        if ($nextButton.length) {
+            $(button).insertBefore($nextButton);
         } else {
-            answerWords.appendChild(button);
+            $wordBank.append(button);
         }
-        button.classList.replace('btn-light', 'btn-outline-primary');
+
+        $(button).removeClass('btn-outline-primary').addClass('btn-light');
     }
 
-    syncAnswer();
-});
+    $(document).on('click', function(event) {
+        const $button = $(event.target).closest('.blocks-word-button');
+        if (!$button.length) return;
 
-answerForm.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter' && !event.shiftKey) {
+        if ($button.parent().is($wordBank)) {
+            $answerWords.append($button);
+            $button.removeClass('btn-light').addClass('btn-outline-primary');
+            $button.trigger('focus');
+        } else if ($button.parent().is($answerWords)) {
+            returnToWordBank($button[0]);
+            $button.trigger('focus');
+        } else {
+            return;
+        }
+
+        syncAnswer();
+    });
+
+    $(document).on('dragstart', function(event) {
+        const $button = $(event.target).closest('.blocks-word-button');
+        if (!$button.length) return;
+
+        const button = $button[0];
+        const dataTransfer = event.originalEvent.dataTransfer;
+
+        dataTransfer.setData('text/plain', button.dataset.wordIndex);
+        dataTransfer.effectAllowed = 'move';
+        $button.addClass('opacity-50');
+    });
+
+    $(document).on('dragend', function(event) {
+        const $button = $(event.target).closest('.blocks-word-button');
+        if ($button.length) $button.removeClass('opacity-50')
+    })
+
+    $(document).on('dragover', function(event) {
+        if ($(event.target).closest('#answer-words, #word-bank').length) {
+            event.preventDefault();
+            event.originalEvent.dataTransfer.dropEffect = 'move';
+        }
+    });
+
+    $(document).on('drop', function(event) {
+        const $destination = $(event.target).closest('#answer-words, #word-bank');
+        if (!$destination.length) return;
+
         event.preventDefault();
-        answerForm.requestSubmit();
-    }
+        const wordIndex = event.originalEvent.dataTransfer.getData('text/plain');
+        const $button = $(`.blocks-word-button[data-word-index="${wordIndex}"]`);
+        if (!$button.length) return;
+
+        if ($destination.is($wordBank)) {
+            returnToWordBank($button[0]) 
+        } else {
+            const $targetButton = $(event.target).closest('.blocks-word-button');
+            if ($targetButton.length && $targetButton[0] === $button[0]) {
+                return;
+            } else if ($targetButton.length) {
+                const bounds = $targetButton[0].getBoundingClientRect();
+                const midpointY = bounds.top + bounds.height / 2;
+                const isSameRow = Math.abs(event.clientY - midpointY) <= bounds.height / 2;
+                const isBefore = isSameRow
+                    ? event.clientX < bounds.left + bounds.width / 2
+                    : event.clientY < midpointY;
+                if (isBefore) {
+                    $button.insertBefore($targetButton);
+                } else {
+                    $button.insertAfter($targetButton);
+                }
+            } else {
+                $answerWords.append($button);
+            }
+            $button.removeClass('btn-light').addClass('btn-outline-primary');
+        }
+
+        syncAnswer();
+    });
+
+    $answerForm.on('keydown', function(event) {
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+            $answerForm[0].requestSubmit()
+        } 
+    })
 });
 </script>
 {% endblock script %}

@@ -24,7 +24,7 @@ from .forms import ProfileForm, TestForm
 
 # Constants for setting user phrase view counts, evaluating accuracy and errors in testing views.
 INITIATE_COUNT, UNASSESSED_ACCURACY, UNASSESSED_SCORE, MAX_ERRORS = 1, False, -1, 100
-PLUS_5_XP, PLUS_9_XP, QUIZ_LENGTH, RESET_TEST_COUNT, RESET_SCORE = 5, 9, 12, 1, 0
+PLUS_2_XP, PLUS_5_XP, PLUS_9_XP, QUIZ_LENGTH, RESET_TEST_COUNT, RESET_SCORE = 2, 5, 9, 12, 1, 0
 
 
 def clear_data_from_session(request, *previous_question_data) -> None:
@@ -680,7 +680,7 @@ class BlocksView(LoginRequiredMixin, View):
         if best_score >= 90:
             user_phrase_strength.correct += 1
             user_phrase_strength.strength = round(best_score)
-            profile.xp += PLUS_5_XP
+            profile.xp += PLUS_2_XP
             profile.save()
             response_accuracy = True
         else:
@@ -700,7 +700,7 @@ class BlocksView(LoginRequiredMixin, View):
             'response_accuracy': response_accuracy,
             'testing_view': 'frendj:blocks',
             'feedback_html': feedback_html,
-            'xp_reward': PLUS_5_XP,
+            'xp_reward': PLUS_2_XP,
             'matched_translation': matched_translation,
         })
 
