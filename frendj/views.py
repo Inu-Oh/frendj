@@ -484,7 +484,7 @@ class LearnView(LoginRequiredMixin, View):
             total=Count('pk'),
             total_module_strength=Sum('strength'),
         )
-        if counts['total'] > 0 and counts['total_module_strength'] is not None:
+        if counts['learned'] > 0 and counts['total_module_strength'] is not None:
             avg_strength = round(counts['total_module_strength'] / counts['learned'])
         else:
             avg_strength = 0
@@ -605,7 +605,7 @@ class BlocksView(LoginRequiredMixin, View):
             total=Count('pk'),
             total_module_strength=Sum('strength'),
         )
-        if counts['total'] > 0 and counts['total_module_strength'] is not None:
+        if counts['learned'] > 0 and counts['total_module_strength'] is not None:
             avg_strength = round(counts['total_module_strength'] / counts['learned'])
         else:
             avg_strength = 0

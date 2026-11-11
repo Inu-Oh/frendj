@@ -50,7 +50,6 @@ INSTALLED_APPS = [
     'accounts',
     'crispy_bootstrap5',
     'crispy_forms',
-    'django_bootstrap5',
     'django_extensions',
 
     # My apps
