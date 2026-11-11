@@ -5,59 +5,56 @@
 
 
 {% block content %}
-<div class="container">
-    <div class="row">
-        <div class="col-8">
+<div class="blocks-page">
+    <div class="blocks-layout">
+        <main class="blocks-exercise" aria-labelledby="blocks-title">
+            <header class="blocks-heading">
+                <span class="blocks-language">
+                    {% if phrase.language == "French" %}
+                        French <span aria-hidden="true">
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </span> English
+                    {% else %}
+                        English <span aria-hidden="true">
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </span> French
+                    {% endif %}
+                </span>
+                <h1 id="blocks-title">Build the sentence</h1>
+                <p>Choose the words in the right order to translate the phrase.</p>
+            </header>
 
-            <main class="main container">
-                <div class="d-flex flex-column gap-4">
+            {% if message %}
+                <p class="blocks-message">{{ message }}</p>
+            {% endif %}
 
-                    <div class="bg-light p-4 rounded-3 fs-3 border">
-                        <h3 class="text-secondary fs-4">
-                            <i class="fa-regular fa-comment"></i> &nbsp; Translate
-                            <span class="badge bg-secondary">
-                                {% if phrase.language == "French" %}
-                                    French to English
-                                {% else %}
-                                    English to French
-                                {% endif %}
-                            </span>
-                        </h3>
+            {% if not phrase %}
+                <p class="blocks-empty">Learn phrases before doing practice.</p>
+            {% else %}
+                <section class="blocks-prompt" aria-labelledby="blocks-prompt-label">
+                    <span id="blocks-prompt-label" class="blocks-eyebrow">Translate this phrase</span>
+                    <p>{{ phrase }}</p>
+                </section>
+
+                <form id="blocks-answer-form" action="" method="post">
+                    {% if form.errors %}
+                        <p class="blocks-message">There was an error. Please try again.</p>
+                    {% endif %}
+                    {% csrf_token %}
+                    {{ form.answer.as_hidden }}
+
+                    <div class="blocks-answer-heading">
+                        <span id="blocks-answer-label">Your answer</span>
+                        <span id="blocks-answer-instructions">Click or drag words to add and arrange them.</span>
                     </div>
+                    <div id="answer-words" class="blocks-answer" aria-labelledby="blocks-answer-label"
+                        aria-describedby="blocks-answer-instructions"></div>
 
-                    <div class="bg-light p-4 rounded-3 border">
-                        {% if message %}
-                            <p class="text-danger fs-5"><strong>{{ message }}<strong></p>
-                        {% endif %}
-
-                        {% if not phrase %}
-                            <p class="fs-3 py-5">Learn phrases before doing practice</p>
-                        {% else %}
-                            <h1 class="fs-2 py-5 ms-3">{{ phrase }}</h1>
-                        {% endif %}
+                    <div class="blocks-bank-heading">
+                        <span>Word bank</span>
+                        <span>{{ translation_words|length }} words</span>
                     </div>
-
-                    <div class="bg-light p-4 rounded-3 m-1 border">
-                        <small class="text-muted small">Your answer</small>   
-                        <form id="blocks-answer-form" action="" method="post"
-                            enctype="multipart/form-data">
-                            {% if form.errors %}
-                                <p>There was an error. Please try again.</p>
-                            {% endif %}
-                            {% csrf_token %}
-                            {{ form.answer.as_hidden }}
-                            <div id="answer-words"
-                                class="d-flex flex-wrap gap-2 border rounded bg-white p-2 mb-3"
-                                style="min-height: 3.5rem;"
-                                aria-label="Your answer">
-                            </div>
-                            <button type="submit" class="btn btn-primary">
-                                Check answer
-                            </button>
-                        </form>
-                    </div>
-
-                    <div id="word-bank" class="d-flex flex-wrap gap-2">
+                    <div id="word-bank" class="blocks-word-bank" aria-label="Available words">
                         {% for word in translation_words %}
                             <button type="button" class="btn btn-light blocks-word-button"
                                 data-word-index="{{ forloop.counter0 }}" draggable="true">
@@ -65,63 +62,52 @@
                             </button>
                         {% endfor %}
                     </div>
+
+                    <div class="blocks-actions">
+                        <span></span>
+                        <button type="submit" class="btn btn-primary blocks-submit">
+                            Check answer
+                        </button>
+                    </div>
+                </form>
+            {% endif %}
+        </main>
+
+        <aside class="blocks-sidebar" aria-label="Learning progress">
+            <div class="blocks-profile">
+                <span class="blocks-avatar" aria-hidden="true">
+                    <i class="fa-regular fa-user"></i>
+                </span>
+                <div>
+                    <div class="blocks-profile-name">{{ profile.name }}</div>
+                    <div class="blocks-xp"><strong>{{ profile.xp|intcomma }} XP</strong> earned</div>
                 </div>
-            </main>
+            </div>
 
-        </div>
+            <p class="blocks-eyebrow">Current module</p>
+            <h2 class="blocks-module-title">{{ module.name|title }}</h2>
 
-        <div class="col">
-            <aside id="info-pane" class="p-2">
-                <div class="container py-1">
-                    <div class="fs-3 fw-bolder py-2">
-                        <i class="fa-regular fa-user-circle"></i> 
-                        &nbsp; {{ profile.name }} 
-                    </div>
-
-                    <div class="fs-4 pb-3">
-                        <i class="fa-regular fa-star"></i> &nbsp;
-                        <span class="text-muted">XP</span> &nbsp; 
-                        <span class="fw-bold">{{ profile.xp|intcomma }}</span>
-                    </div>
-
-                    <div class="card border-0">
-                        <div class="card-header bg-light border-0 rounded gap-2">
-                            <h2 class="h5 mb-0">{{ module.name|title }}</h2>
-                        </div>
-
-                    </div>
-                    <div class="container p-2">
-                        <div class="d-flex justify-content-between align-items-baseline mb-1">
-                            Cards
-                            <span class="fs-5 fw-semibold">{{ phrase_count }}</span>
-                        </div>
-                        <div class="d-flex justify-content-between align-items-baseline">
-                            Module strength
-                            <span class="fs-5 fw-semibold">{{ module_strength }}%</span>
-                        </div>
-                    </div>
-
-                    <div class="p-2">
-                        <label for="prog-bar" class="text-muted small">
-                            Progress &#8226;
-                            {% if learned_count > 0 %}{{ learned_count }} done &#8226; {% endif %}
-                            {{ unlearned_count }} cards to go
-                        </label>
-                        <div class="progress border w-100 position-relative" id="prog-bar">
-                            <div class="progress-bar progress-bar-striped bg-success"
-                                role="progressbar" style="width: {{ module_progress }}%;"
-                                aria-valuenow="{{ module_progress }}" aria-valuemin="0"
-                                aria-valuemax="100" aria-valuetext="{{ module_progress }}%">
-                            </div>
-                            <span class="progress-label {% if module_progress < 50 %}progress-label-low{% else %}progress-label-high{% endif %}">
-                                {{ module_progress }}%
-                            </span>
-                        </div>
-                    </div>
-
-                </div>
-            </aside>
-        </div>
+            <div class="blocks-stat">
+                <span>Cards in module</span>
+                <strong>{{ phrase_count }}</strong>
+            </div>
+            <div class="blocks-stat">
+                <span>Module strength</span>
+                <strong>{{ module_strength }}%</strong>
+            </div>
+            <div class="blocks-stat">
+                <span>Cards learned</span>
+                <strong>{{ learned_count }} of {{ phrase_count }}</strong>
+            </div>
+            <div class="blocks-progress" role="progressbar" aria-label="Module progress"
+                aria-valuenow="{{ module_progress }}" aria-valuemin="0" aria-valuemax="100"
+                aria-valuetext="{{ module_progress }}%">
+                <span style="width: {{ module_progress }}%;"></span>
+            </div>
+            <p class="blocks-progress-copy">
+                {{ module_progress }}% complete &middot; {{ unlearned_count }} cards to go
+            </p>
+        </aside>
     </div>
 </div>
 {% endblock content %}
@@ -239,12 +225,16 @@ $(document).ready(function() {
         syncAnswer();
     });
 
-    $answerForm.on('keydown', function(event) {
-        if (event.key === 'Enter' && !event.shiftKey) {
-            event.preventDefault();
-            $answerForm[0].requestSubmit()
-        } 
-    })
+    document.addEventListener('keydown', function(event) {
+        if (event.key !== 'Enter' || event.shiftKey ||
+            !(event.target instanceof Element) ||
+            !event.target.closest('#blocks-answer-form')) {
+            return;
+        }
+
+        event.preventDefault();
+        $answerForm.find('button[type="submit"]')[0].click();
+    }, true);
 });
 </script>
 {% endblock script %}
