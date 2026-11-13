@@ -5,11 +5,11 @@
 
 
 {% block content %}
-<div class="blocks-page">
-    <div class="blocks-layout">
-        <main class="blocks-exercise" aria-labelledby="blocks-title">
-            <header class="blocks-heading">
-                <span class="blocks-language">
+<div class="quiz-page">
+    <div class="quiz-layout">
+        <main class="quiz-exercise" aria-labelledby="quiz-title">
+            <header class="quiz-heading">
+                <span class="quiz-language">
                     {% if phrase.language == "French" %}
                         French <span aria-hidden="true">
                             <i class="fa-solid fa-arrow-right"></i>
@@ -20,52 +20,52 @@
                         </span> French
                     {% endif %}
                 </span>
-                <h1 id="blocks-title">Build the sentence</h1>
+                <h1 id="quiz-title">Build the sentence</h1>
                 <p>Choose the words in the right order to translate the phrase.</p>
             </header>
 
             {% if message %}
-                <p class="blocks-message">{{ message }}</p>
+                <p class="quiz-message">{{ message }}</p>
             {% endif %}
 
             {% if not phrase %}
-                <p class="blocks-empty">Learn phrases before doing practice.</p>
+                <p class="quiz-empty">Learn phrases before doing practice.</p>
             {% else %}
-                <section class="blocks-prompt" aria-labelledby="blocks-prompt-label">
-                    <span id="blocks-prompt-label" class="blocks-eyebrow">Translate this phrase</span>
+                <section class="quiz-prompt" aria-labelledby="quiz-prompt-label">
+                    <span id="quiz-prompt-label" class="quiz-eyebrow">Translate this phrase</span>
                     <p>{{ phrase }}</p>
                 </section>
 
-                <form id="blocks-answer-form" action="" method="post">
+                <form id="quiz-answer-form" action="" method="post">
                     {% if form.errors %}
-                        <p class="blocks-message">There was an error. Please try again.</p>
+                        <p class="quiz-message">There was an error. Please try again.</p>
                     {% endif %}
                     {% csrf_token %}
                     {{ form.answer.as_hidden }}
 
-                    <div class="blocks-answer-heading">
-                        <span id="blocks-answer-label">Your answer</span>
-                        <span id="blocks-answer-instructions">Click or drag words to add and arrange them.</span>
+                    <div class="quiz-answer-heading">
+                        <span id="quiz-answer-label">Your answer</span>
+                        <span id="quiz-answer-instructions">Click or drag words to add and arrange them.</span>
                     </div>
-                    <div id="answer-words" class="blocks-answer" aria-labelledby="blocks-answer-label"
-                        aria-describedby="blocks-answer-instructions"></div>
+                    <div id="answer-words" class="quiz-answer" aria-labelledby="quiz-answer-label"
+                        aria-describedby="quiz-answer-instructions"></div>
 
-                    <div class="blocks-bank-heading">
+                    <div class="quiz-bank-heading">
                         <span>Word bank</span>
                         <span>{{ translation_words|length }} words</span>
                     </div>
-                    <div id="word-bank" class="blocks-word-bank" aria-label="Available words">
+                    <div id="word-bank" class="quiz-word-bank" aria-label="Available words">
                         {% for word in translation_words %}
-                            <button type="button" class="btn btn-light blocks-word-button"
+                            <button type="button" class="btn btn-light quiz-word-button"
                                 data-word-index="{{ forloop.counter0 }}" draggable="true">
                                 {{ word }}
                             </button>
                         {% endfor %}
                     </div>
 
-                    <div class="blocks-actions">
+                    <div class="quiz-actions">
                         <span></span>
-                        <button type="submit" class="btn btn-primary blocks-submit">
+                        <button type="submit" class="btn btn-primary quiz-submit">
                             Check answer
                         </button>
                     </div>
@@ -73,38 +73,38 @@
             {% endif %}
         </main>
 
-        <aside class="blocks-sidebar" aria-label="Learning progress">
-            <div class="blocks-profile">
-                <span class="blocks-avatar" aria-hidden="true">
+        <aside class="quiz-sidebar" aria-label="Learning progress">
+            <div class="quiz-profile">
+                <span class="quiz-avatar" aria-hidden="true">
                     <i class="fa-regular fa-user"></i>
                 </span>
                 <div>
-                    <div class="blocks-profile-name">{{ profile.name }}</div>
-                    <div class="blocks-xp"><strong>{{ profile.xp|intcomma }} XP</strong> earned</div>
+                    <div class="quiz-profile-name">{{ profile.name }}</div>
+                    <div class="quiz-xp"><strong>{{ profile.xp|intcomma }} XP</strong> earned</div>
                 </div>
             </div>
 
-            <p class="blocks-eyebrow">Current module</p>
-            <h2 class="blocks-module-title">{{ module.name|title }}</h2>
+            <p class="quiz-eyebrow">Current module</p>
+            <h2 class="quiz-module-title">{{ module.name|title }}</h2>
 
-            <div class="blocks-stat">
+            <div class="quiz-stat">
                 <span>Cards in module</span>
                 <strong>{{ phrase_count }}</strong>
             </div>
-            <div class="blocks-stat">
+            <div class="quiz-stat">
                 <span>Module strength</span>
                 <strong>{{ module_strength }}%</strong>
             </div>
-            <div class="blocks-stat">
+            <div class="quiz-stat">
                 <span>Cards learned</span>
                 <strong>{{ learned_count }} of {{ phrase_count }}</strong>
             </div>
-            <div class="blocks-progress" role="progressbar" aria-label="Module progress"
+            <div class="quiz-progress" role="progressbar" aria-label="Module progress"
                 aria-valuenow="{{ module_progress }}" aria-valuemin="0" aria-valuemax="100"
                 aria-valuetext="{{ module_progress }}%">
                 <span style="width: {{ module_progress }}%;"></span>
             </div>
-            <p class="blocks-progress-copy">
+            <p class="quiz-progress-copy">
                 {{ module_progress }}% complete &middot; {{ unlearned_count }} cards to go
             </p>
         </aside>
@@ -116,13 +116,13 @@
 {% block script %}
 <script>
 $(document).ready(function() {
-    const $answerForm = $('#blocks-answer-form');
+    const $answerForm = $('#quiz-answer-form');
     const $answerInput = $answerForm.find('input[name="answer"]');
     const $answerWords = $('#answer-words');
     const $wordBank = $('#word-bank');
 
     function syncAnswer() {
-        const $answer = $answerWords.find('.blocks-word-button')
+        const $answer = $answerWords.find('.quiz-word-button')
             .map(function () {
                 return $(this).text().trim();
             })
@@ -148,7 +148,7 @@ $(document).ready(function() {
     }
 
     $(document).on('click', function(event) {
-        const $button = $(event.target).closest('.blocks-word-button');
+        const $button = $(event.target).closest('.quiz-word-button');
         if (!$button.length) return;
 
         if ($button.parent().is($wordBank)) {
@@ -166,7 +166,7 @@ $(document).ready(function() {
     });
 
     $(document).on('dragstart', function(event) {
-        const $button = $(event.target).closest('.blocks-word-button');
+        const $button = $(event.target).closest('.quiz-word-button');
         if (!$button.length) return;
 
         const button = $button[0];
@@ -178,7 +178,7 @@ $(document).ready(function() {
     });
 
     $(document).on('dragend', function(event) {
-        const $button = $(event.target).closest('.blocks-word-button');
+        const $button = $(event.target).closest('.quiz-word-button');
         if ($button.length) $button.removeClass('opacity-50')
     })
 
@@ -195,13 +195,13 @@ $(document).ready(function() {
 
         event.preventDefault();
         const wordIndex = event.originalEvent.dataTransfer.getData('text/plain');
-        const $button = $(`.blocks-word-button[data-word-index="${wordIndex}"]`);
+        const $button = $(`.quiz-word-button[data-word-index="${wordIndex}"]`);
         if (!$button.length) return;
 
         if ($destination.is($wordBank)) {
             returnToWordBank($button[0]) 
         } else {
-            const $targetButton = $(event.target).closest('.blocks-word-button');
+            const $targetButton = $(event.target).closest('.quiz-word-button');
             if ($targetButton.length && $targetButton[0] === $button[0]) {
                 return;
             } else if ($targetButton.length) {
@@ -228,7 +228,7 @@ $(document).ready(function() {
     document.addEventListener('keydown', function(event) {
         if (event.key !== 'Enter' || event.shiftKey ||
             !(event.target instanceof Element) ||
-            !event.target.closest('#blocks-answer-form')) {
+            !event.target.closest('#quiz-answer-form')) {
             return;
         }
 
