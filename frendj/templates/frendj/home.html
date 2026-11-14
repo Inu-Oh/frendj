@@ -11,21 +11,6 @@
         <div class="col-8">
             <main class="app-panel card p-0">
 
-                {% if user.is_authenticated and not profile %}
-                    <div class="card-header">
-                        <h1 class="card-title">Welcome, {{ user.username }}.</h1>
-                    </div>
-                    <div class="card-body">
-                        <div class="card-text">
-                            Click the button to complete your profile.
-                            <a href="{% url 'frendj:create_profile' %}"
-                                class="link-style m-3 p-3">
-                                Complete profile &raquo;
-                            </a>
-                        </div>
-                    </div>
-
-                {% else %}
                 <div class="card-header">
                     <h1 class="fs-3 card-title pt-1">Activities</h1>
                 </div>
@@ -71,7 +56,6 @@
                                 &nbsp; &raquo; &nbsp; research content and track progress
                             </a>
                         </div>
-                    {% endif %}
                     </div>
                 </div>
                 

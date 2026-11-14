@@ -1,16 +1,6 @@
 from django import forms
 
-from .models import Profile, UserPhraseStrength
-
-
-class ProfileForm(forms.ModelForm):
-    class Meta:
-        model = Profile
-        fields = ['name']
-    
-    def __init__(self, *args, **kwargs):
-        super(ProfileForm, self).__init__(*args, **kwargs)
-        self.fields['name'].label = "First name "
+from .models import UserPhraseStrength
 
 
 class PhraseStrengthForm(forms.ModelForm):

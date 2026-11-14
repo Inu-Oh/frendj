@@ -9,7 +9,8 @@ from django.utils import timezone
 from django.urls import reverse_lazy
 from django.views.generic import UpdateView, CreateView, ListView, View
 
-from frendj.models import Module, Phrase, Translation, Profile, UserPhraseStrength
+from frendj.models import Module, Phrase, Translation, UserPhraseStrength
+from accounts.models import Profile
 
 from .forms import ModuleForm, CreatePhraseForm, CreateTranslationForm, UpdatePhraseForm, UpdateTranslationForm, CsvTestForm, CsvSubmitForm
     

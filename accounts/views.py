@@ -4,6 +4,7 @@ from django.urls import reverse_lazy
 from django.views.generic import CreateView
 
 from .forms import UserCreateForm
+from .models import Profile
 from frendj.models import Phrase, UserPhraseStrength
 
 
@@ -26,6 +27,11 @@ class RegisterView(CreateView):
         
         with transaction.atomic():
             user = form.save()
+
+            Profile.objects.create(
+                user=user,
+                name=form.cleaned_data['name'],
+            )
 
             # For all phrases, set user strength to 0 and learned to false
             for phrase in Phrase.objects.all():

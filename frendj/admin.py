@@ -1,5 +1,5 @@
 from django.contrib import admin
-from frendj.models import Module, Phrase, Profile, Translation, UserPhraseStrength
+from frendj.models import Module, Phrase, Translation, UserPhraseStrength
 
 
 @admin.register(Module)
@@ -13,13 +13,6 @@ class PhraseAdmin(admin.ModelAdmin):
     ordering = ('phrase', 'language', 'module')
     search_fields = ('phrase',)
     list_filter = ('language', 'module')
-
-
-@admin.register(Profile)
-class ProfileAdmin(admin.ModelAdmin):
-    list_display = ('user', 'name', 'xp')
-    fields = ('user',)
-    search_fields = ('name',)
 
 
 @admin.register(Translation)

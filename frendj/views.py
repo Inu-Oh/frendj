@@ -1,7 +1,6 @@
 from django.shortcuts import render
 
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db import transaction
 from django.db.models import Count, Exists, ExpressionWrapper, F, IntegerField, OuterRef, Q, Sum, Value
 from django.db.models.functions import Cast, ExtractDay, Greatest, NullIf, Round
 from django.http import HttpResponseRedirect
@@ -9,7 +8,7 @@ from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 from django.urls import reverse_lazy
-from django.views.generic import TemplateView, UpdateView, View, CreateView, ListView
+from django.views.generic import TemplateView, UpdateView, View, ListView
 
 from datetime import timedelta
 from difflib import SequenceMatcher
@@ -20,8 +19,9 @@ import string
 import re
 import unicodedata
 
-from .models import Module, Phrase, Translation, Profile, UserPhraseStrength
-from .forms import ProfileForm, TestForm
+from .models import Module, Phrase, UserPhraseStrength
+from accounts.models import Profile
+from .forms import TestForm
 
 # Constants for setting user phrase view counts, evaluating accuracy and errors in testing views.
 INITIATE_COUNT, UNASSESSED_ACCURACY, UNASSESSED_SCORE, MAX_ERRORS = 1, False, -1, 100
@@ -212,11 +212,7 @@ class Home(LoginRequiredMixin, TemplateView):
     template_name = 'frendj/home.html'
 
     def get(self, request):
-        # Redirect to create profile page if the user doesn't have one
-        try:
-            profile = Profile.objects.get(user = request.user)
-        except:
-            return redirect(reverse_lazy('frendj:create_profile'))
+        profile = Profile.objects.get(user=request.user)
 
         # Add Quiz completion message to context if present
         if msg := request.session.get('quiz_complete_msg'):
@@ -282,37 +278,6 @@ class ResetView(LoginRequiredMixin, UpdateView):
             updated_at=now
         )
         return redirect('frendj:home')
-
-
-class ProfileCreateView(LoginRequiredMixin, CreateView):
-    """
-    Adds a profile name to greet the user
-    Creates objects to track the user's skill with all phrases in the database
-    """
-    model = Profile
-    template_name = 'frendj/create_profile.html'
-
-    def get(self, request):
-        form = ProfileForm()
-        context = {'form': form}
-        return render(request, self.template_name, context)
-    
-    def post(self, request):
-        form = ProfileForm(request.POST)
-        if not form.is_valid():
-            context = {'form': form}
-            return render(request, self.template_name, context)
-
-        # If profile is already created, logic prevents duplicate creation.
-        with transaction.atomic():
-            _, created = Profile.objects.get_or_create(
-                user=request.user,
-                defaults={'name': form.cleaned_data['name']},
-            )
-            if not created:
-                return redirect(reverse_lazy('frendj:home'))
-
-        return redirect(reverse_lazy('frendj:home'))
 
 
 class GlossaryView(LoginRequiredMixin, ListView):

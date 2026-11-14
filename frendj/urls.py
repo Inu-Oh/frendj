@@ -6,9 +6,6 @@ urlpatterns = [
     # Home page
     path('', views.Home.as_view(), name='home'),
 
-    # Profile creation and edit views
-    path('create_profile', views.ProfileCreateView.as_view(), name='create_profile'),
-
     # Recalculate user phrase strength after each login
     path('reset/', views.ResetView.as_view(), name='reset'),
 

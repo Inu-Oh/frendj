@@ -8,69 +8,12 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Module, Phrase, Profile, Translation, UserPhraseStrength
+from accounts.models import Profile
+from .models import Module, Phrase, Translation, UserPhraseStrength
 from .views import feedback
 
 
 User = get_user_model()
-
-
-class ProfileTestCase(TestCase):
-
-    def setUp(self):
-        
-        # Create users
-        user = User.objects.create_user(username="foo", password="dj39&*d2", email="foo@cb-bc.gc.ca")
-        admin = User.objects.create_superuser(username="bar", password="jd93*&2d", email="bar@cb-bc.gc.ca")
-        noname = User.objects.create_user(username="baz", password="2fcv2$@1", email="baz@gmail.com")
-        less_than_zero = User.objects.create_user(username="minusone", password="-13f23%^jd", email="minusone@cb-bc.gc.ca")
-
-        # Create profiles
-        Profile.objects.create(user=user, name="Foo")
-        Profile.objects.create(user=admin, name="Bar", xp=0)
-        Profile.objects.create(user=noname, name="", xp=999_999_999)
-        Profile.objects.create(user=less_than_zero, name="Minus One", xp=-1)
-    
-    def test_profile_count(self):
-        profiles = Profile.objects.all()
-        self.assertEqual(profiles.count(), 4)
-
-    def test_valid_profile1(self):
-        user_profile = Profile.objects.get(name="Foo")
-        self.assertTrue(user_profile.is_valid_profile())
-    
-    def test_valid_profile2(self):
-        admin_profile = Profile.objects.get(name="Bar")
-        self.assertTrue(admin_profile.is_valid_profile())
-
-    def test_invalid_profile_no_name(self):
-        noname_profile = Profile.objects.get(name="")
-        self.assertFalse(noname_profile.is_valid_profile())
-    
-    def test_invalid_profile_negative_xp(self):
-        negative_xp_profile = Profile.objects.get(name="Minus One")
-        self.assertFalse(negative_xp_profile.is_valid_profile())
-
-
-class ProfileCreateViewTestCase(TestCase):
-
-    def setUp(self):
-        self.user = User.objects.create_user(username="profile-creator")
-        self.client.force_login(self.user)
-
-    def test_repeat_submission_does_not_create_duplicate_profile(self):
-        url = reverse("frendj:create_profile")
-        first_response = self.client.post(url, {"name": "First name"})
-        second_response = self.client.post(url, {"name": "Second name"})
-
-        self.assertRedirects(
-            first_response, reverse("frendj:home"), fetch_redirect_response=False
-        )
-        self.assertRedirects(
-            second_response, reverse("frendj:home"), fetch_redirect_response=False
-        )
-        self.assertEqual(Profile.objects.filter(user=self.user).count(), 1)
-        self.assertEqual(Profile.objects.get(user=self.user).name, "First name")
 
 
 class ModuleTestCase(TestCase):
