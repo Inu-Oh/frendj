@@ -1,25 +1,16 @@
 {% extends "base_menu.html" %}
 
 
-{% block title %} - Strict Exam{% endblock title %}
+{% block title %} - Strict Spelling Quiz{% endblock title %}
 
 
 {% block content %}
-<div class="container">
-    <div class="row">
-
-        <div class="col-8">
-
-            {% include 'test_card.html' %}
-
-        </div>
-
-        <div class="col">
-            
-            {% include 'info_pane.html' %}
-            
-        </div>
-        
+<div class="app-page app-layout">
+    <div>
+        {% include 'test_card.html' %}
+    </div>
+    <div>
+        {% include 'info_pane.html' %}
     </div>
 </div>
 {% endblock content %}

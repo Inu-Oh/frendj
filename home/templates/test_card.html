@@ -1,36 +1,46 @@
 {% load humanize %}
 
 
-<main class="main container">
+<main class="app-panel app-panel-content">
     <div class="d-flex flex-column gap-4">
 
-        <div class="bg-light p-4 rounded-3 fs-3 border">
-            <h3 class="text-secondary fs-4">
-                <i class="fa-regular fa-comment"></i> &nbsp; Translate
-                <span class="badge bg-secondary">
-                    {% if phrase.language == "French" %}
-                        French to English
-                    {% else %}
-                        English to French
-                    {% endif %}
-                </span>
-            </h3>
-        </div>
+        <header class="app-heading">
+            <span class="quiz-language">
+                {% if phrase.language == "French" %}
+                    French <span aria-hidden="true">
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </span> English
+                {% else %}
+                    English <span aria-hidden="true">
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </span> French
+                {% endif %}
+            </span>
+            <h1>Translate the phrase</h1>
+            <p>
+                {% if testing_view == "frendj:accent" %}
+                    Type the translation including exect accents and punctuation.
+                {% else %}
+                    Type the translation below.
+                {% endif %}
+            </p>
+        </header>
 
-        <div class="bg-light p-4 rounded-3 border">
+        <section class="app-prompt" aria-labelledby="quiz-prompt-label">
+            <span id="quiz-prompt-label" class="quiz-eyebrow">Translate this phrase</span>
             {% if message %}
-                <p class="text-danger fs-5"><strong>{{ message }}<strong></p>
+                <p class="app-message"><strong>{{ message }}</strong></p>
             {% endif %}
 
             {% if not phrase %}
-                <p class="fs-3 py-5">Learn phrases before doing practice</p>
+                <p class="app-empty">Learn phrases before doing practice</p>
             {% else %}
-                <h1 class="fs-2 py-5 ms-3">{{ phrase }}</h1>
+                <p>{{ phrase }}</p>
             {% endif %}
-        </div>
+        </section>
 
-        <div class="bg-light p-4 rounded-3 m-1 border">
-            <small class="text-muted small">Your answer</small>   
+        <section class="app-prompt">
+            <span class="quiz-eyebrow">Your answer</span>
             {% load crispy_forms_tags %}
             <form action="" method="post" enctype="multipart/form-data" class="">
                 {% if form.errors %}
@@ -39,7 +49,7 @@
                 {% csrf_token %}
                 {{ form|crispy }}
             </form>
-        </div>
+        </section>
 
     </div>
 </main>

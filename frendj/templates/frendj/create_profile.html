@@ -1,22 +1,55 @@
 {% extends "base_menu.html" %}
 
 
-{% block header %}
-    <h1 class="display-3 text-muted pt-3">Set up your profile</h1>   
-{% endblock header %}
-
-
 {% block content %}
-    <div class="container p-3">
+
+    <div class="app-page">
+        <header>
+            <h1 class="display-3">Set up your profile</h1>
+        </header>
+    </div>
+
+    <div class="app-page app-panel app-panel-content">
         {% load crispy_forms_tags %}
-        <form action="" method="post" id="upload_form" enctype="multipart/form-data">
+        <form action="" method="post" id="upload_form" class="profile-creation-form"
+            enctype="multipart/form-data">
             {% if form.errors %}
                 <p>There was an error with your form. Please try again.</p>
             {% endif %}
             {% csrf_token %}
             {{ form|crispy }}
-            <input type="submit" value="Submit &raquo;" class="btn btn-lg btn-success">
+            <input type="submit" value="Submit &raquo;" class="btn btn-lg app-primary">
         </form>
     </div>
 
+    <div id="profile-loading-overlay" class="csv-loading-overlay d-none"
+        role="status" aria-live="polite" aria-label="Setting up user progress tracking">
+        <div class="text-center">
+            <div class="spinner-border text-success" aria-hidden="true"></div>
+            <p class="mt-2 mb-0 fw-semibold">
+                Setting up your progress tracking.
+                Please wait; you will be redirected shortly.
+            </p>
+        </div>
+    </div>
+
 {% endblock content %}
+
+{% block script %}
+<script>
+$(document).ready(function() {
+    let isSubmitting = false;
+
+    $('.profile-creation-form').on('submit', function(event) {
+        if (isSubmitting) {
+            event.preventDefault();
+            return;
+        }
+
+        isSubmitting = true;
+        $(this).find(':submit').prop('disabled', true);
+        $('#profile-loading-overlay').removeClass('d-none');
+    });
+});
+</script>
+{% endblock script %}

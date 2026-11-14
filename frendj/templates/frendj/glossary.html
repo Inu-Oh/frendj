@@ -3,13 +3,14 @@
 
 
 {% block content %}
-{% if profile %}
-    {% include 'alt_info_pane.html' %}
-{% endif %}
+<div class="app-page glossary-page">
+    {% if profile %}
+        {% include 'alt_info_pane.html' %}
+    {% endif %}
 
 
-<section class="container-fluid d-flex justify-content-between">
-    <form action="" muted="get" class="m-4 input-group">
+<main class="app-panel app-panel-content container-fluid p-2 xb-2">
+    <form action="" method="get" class="container input-group glossary-search px-4 py-2">
         <input type="text" placeholder="Search phrases and translations" name="search"
         class="form-control"
         {% if search %} value="{{ search }}" {% endif %}>
@@ -18,9 +19,6 @@
         <a href="{% url 'frendj:glossary' %}" class="btn btn-outline-dark">
             <i class="fa fa-undo pt-1"></i></a>
     </form>
-</section>
-
-<main class="container-fluid p-2 xb-2">
     <div class="container">
         <div class="row pb-2">
             <div class="col-4 text-end fw-bold">Phrase</div>
@@ -74,5 +72,5 @@
         {% endif %}
     </div>
 </main>
-    
+</div>
 {% endblock content %}

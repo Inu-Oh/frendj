@@ -2,8 +2,8 @@
 
 
 {% block content %}
-<div id="login" class="p-5">
-    <h1 class="display-3 text-muted pt-3">Log in</h1>
+<div id="login" class="app-panel app-panel-content">
+    <h1 class="display-4 text-muted pt-3">Log in</h1>
 
     <div class="container p-3">
         <form method="post" action="{% url 'login' %}">
@@ -12,7 +12,8 @@
             {% endif %}
             {% csrf_token %}
             <div class="form-floating">
-                <input class="form-control" type="text" name="username" autofocus autocapitalize="none" 
+                <input class="form-control" type="text" name="username" autofocus
+                    autocapitalize="none" 
                     autocomplete="username" maxlength="150" required id="id_username" />
                 <label for="id_username" class="form-label" placeholder="Username">
                     Username</label>
@@ -27,9 +28,11 @@
                 <div>{{ form.password.errors }}</div>
             </div>
             <div class="container-fluid pt-4 d-flex justify-content-between">
-                <input type="submit" class="btn btn-success" value="Login &raquo;" />
+                <input type="submit" class="btn auth-button auth-primary"
+                    value="Login &raquo;" />
                 <input type="hidden" class="next" value="{{ next }}" />
-                <a class="btn btn-primary" href="{% url 'accounts:register' %}">
+                <a class="btn auth-button auth-secondary"
+                    href="{% url 'accounts:register' %}">
                     Create a new account &raquo;</a>
             </div>
         </form>

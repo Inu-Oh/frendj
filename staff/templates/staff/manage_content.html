@@ -3,7 +3,7 @@
 
 {% block header %}
 {% if user.is_staff %} 
-<div class="container-fluid d-flex justify-content-between">
+<div class="app-page app-heading d-flex justify-content-between">
     <p class="fs-5 fw-bolder">App Content Admin</p>
     <p class="text-end fs-5">Staff profile: {{ profile.name }}</p>
 </div>
@@ -12,17 +12,18 @@
 
 
 {% block content %}
-<div class="container-fluid">
-    <div class="row p-3">
-        <div class="col-6">
-            <h5>Add modules</h5>
-            <p class="w-100"><a href="{% url 'staff:add_module' %}"
-                class="btn btn-lg btn-outline-dark w-100">
-                Add new modules</a></p>
-        </div>
-        <div class="col-6">
-            <h5>Edit modules</h5>
-            <form id="edit_module_form" action="" method="get" class="input-group">
+<div class="app-page">
+    <div class="app-panel app-panel-content my-3">
+        <div class="row">
+            <div class="col-6">
+                <h5>Add modules</h5>
+                <p class="w-100"><a href="{% url 'staff:add_module' %}"
+                    class="btn btn-lg btn-outline-dark w-100">
+                    Add new modules</a></p>
+            </div>
+            <div class="col-6">
+                <h5>Edit modules</h5>
+                <form id="edit_module_form" action="" method="get" class="input-group">
                 <select id="edit_module" class="form-control" required>
                     <option disabled selected value>Select a module to edit</option>
                     {% if modules %}{% for module in modules %}
@@ -31,12 +32,14 @@
                     </option>   
                     {% endfor %}{% endif %}
                 </select>
-                <button type="submit" class="btn btn-lg btn-outline-dark"
+                <button type="submit" class="btn btn-lg auth-button auth-primary"
                     id="edit_module_submit">Select</button>
-            </form>
+                </form>
+            </div>
         </div>
     </div>
-    <div class="row p-3">
+    <div class="app-panel app-panel-content my-3">
+      <div class="row">
         <div class="col-6 pb-3">
             <h5>Add phrases <span class="text-muted">to modules</span></h5>
             <form id="add_phrase_form" action="" method="get" class="input-group">
@@ -46,7 +49,7 @@
                     <option value="{{ module.id }}">{{ module.name|title }}</option>
                     {% endfor %}{% endif %}
                 </select>
-                <button type="submit" class="btn btn-lg btn-outline-dark"
+                <button type="submit" class="btn btn-lg auth-button auth-primary"
                     id="add_phrase_submit">Select</button>
             </form>
         </div>
@@ -61,12 +64,14 @@
                     </option>
                     {% endfor %}{% endif %}
                 </select>
-                <button type="submit" class="btn btn-lg btn-outline-dark"
+                <button type="submit" class="btn btn-lg auth-button auth-primary"
                     id="edit_phrase_submit">Select</button>
             </form>
         </div>
+      </div>
     </div>
-    <div class="row p-3">
+    <div class="app-panel app-panel-content my-3">
+      <div class="row">
         <div class="col-6">
             <h5>Add translations <span class="text-muted">to phrases</span></h5>
             <form id="add_translation_form" action="" method="get" class="input-group">
@@ -78,7 +83,7 @@
                     </option>
                     {% endfor %}{% endif %}
                 </select>
-                <button type="submit" class="btn btn-lg btn-outline-dark"
+                <button type="submit" class="btn btn-lg auth-button auth-primary"
                     id="add_translation_submit">Select</button>
             </form>
         </div>
@@ -93,10 +98,11 @@
                     </option>
                     {% endfor %}{% endif %}
                 </select>
-                <button type="submit" class="btn btn-lg btn-outline-dark"
+                <button type="submit" class="btn btn-lg auth-button auth-primary"
                     id="edit_translation_submit">Select</button>
             </form>
         </div>
+      </div>
     </div>
 </div>
 {% endblock content %}

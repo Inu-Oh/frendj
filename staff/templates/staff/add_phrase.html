@@ -2,10 +2,9 @@
 
 
 {% block content %}
-<div class="container-fluid w-100">
-    <div class="p-3">
-    <header class="container-fluid p-3 text-muted">
-        <h1 class="fs-2 ">
+<div class="app-page">
+    <header class="app-heading">
+        <h1>
             <span class="text-dark">{{ module.name|title }}</span> module
         </h1>
         <p class="fs-5 ps-3">
@@ -35,7 +34,7 @@
     </header>
 
     <main class="container row pb-3">
-        <div class="border border-3 rounded-4 p-4 col-7">
+        <div class="app-panel app-panel-content col-7">
             <h3 class="">Add new phrase</h3>
             {% load crispy_forms_tags %}
             <form action="" method="post" enctype="multipart/form-data"
@@ -44,10 +43,10 @@
                 {{ form|crispy }}
                 <div class="container-fluid d-flex justify-content-between">
                     <input type="submit" value="Submit"
-                        class="btn btn-outline-success me-3 text-dark">
+                        class="btn auth-button auth-primary me-3">
                     <input id="cancel-button" type="submit" 
                         value="Cancel &nbsp;&raquo;&nbsp; return to menu"
-                        class="btn btn-outline-danger text-dark" 
+                        class="btn auth-button auth-danger"
                         onclick="window.location.href='{% url 'staff:manage_content' %}';return false;">
                 </div>
             </form>
@@ -71,7 +70,6 @@
             {% endif %}
         </div>
     </main>
-    </div>
 </div>
 {% endblock content %}
 

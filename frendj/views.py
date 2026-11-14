@@ -1,6 +1,7 @@
 from django.shortcuts import render
 
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db import transaction
 from django.db.models import Count, Exists, ExpressionWrapper, F, IntegerField, OuterRef, Q, Sum, Value
 from django.db.models.functions import ExtractDay, Greatest, NullIf
 from django.http import HttpResponseRedirect
@@ -215,8 +216,7 @@ class Home(LoginRequiredMixin, TemplateView):
         try:
             profile = Profile.objects.get(user = request.user)
         except:
-            create_profile_url = reverse_lazy('frendj:create_profile')
-            return redirect(create_profile_url)
+            return redirect(reverse_lazy('frendj:create_profile'))
 
         # Add Quiz completion message to context if present
         if msg := request.session.get('quiz_complete_msg'):
@@ -303,22 +303,24 @@ class ProfileCreateView(LoginRequiredMixin, CreateView):
             context = {'form': form}
             return render(request, self.template_name, context)
         
-        # Add user to profile form
-        profile = form.save(commit=False)
-        profile.user = self.request.user
-        profile.save()
-
-        # For all phrases, set user strength to 0 and learned to false
-        phrases = Phrase.objects.all()
-        for phrase in phrases:
-            UserPhraseStrength.objects.create(
-                phrase = phrase,
-                user = self.request.user,
-                learned = False,
-                strength = 0,
-                views = 0,
-                correct = 0
+        with transaction.atomic():
+            _, created = Profile.objects.get_or_create(
+                user=request.user,
+                defaults={'name': form.cleaned_data['name']},
             )
+            if not created:
+                return redirect(reverse_lazy('frendj:home'))
+
+            # For all phrases, set user strength to 0 and learned to false
+            for phrase in Phrase.objects.all():
+                UserPhraseStrength.objects.create(
+                    phrase=phrase,
+                    user=request.user,
+                    learned=False,
+                    strength=0,
+                    views=0,
+                    correct=0,
+                )
         return redirect(reverse_lazy('frendj:home'))
 
 
@@ -576,12 +578,12 @@ class LearnView(LoginRequiredMixin, View):
         return redirect(reverse_lazy('frendj:feedback'))
 
 
-class BlocksView(LoginRequiredMixin, View):
+class BlockLearnView(LoginRequiredMixin, View):
     """
     Test form. Prompts user to reorder scattered set of blocks to form
     valid translation of phrase.
     """
-    template_name = 'frendj/blocks.html'
+    template_name = 'frendj/blocklearn.html'
 
     def get(self, request, pk):
         if ('testing_view' not in request.session or 

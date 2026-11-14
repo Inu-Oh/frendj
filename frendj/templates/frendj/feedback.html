@@ -3,9 +3,9 @@
 
 
 {% block content %}
-<div class="quiz-page">
-    <div class="quiz-layout">
-        <main class="quiz-exercise" aria-labelledby="quiz-title">
+<div class="app-page quiz-page">
+    <div class="app-layout quiz-layout">
+        <main class="app-panel app-panel-content quiz-exercise" aria-labelledby="quiz-title">
             <header class="quiz-heading">
                 <h3 class="quiz-title">
                     <i class="fa-regular fa-comment"></i> &nbsp; {{ result }} &nbsp;
@@ -46,7 +46,7 @@
 
                 <div class="quiz-actions">
                     <span></span>
-                    <a id="feedback-button" class="btn btn-primary quiz-submit" 
+                    <a id="feedback-button" class="btn btn-primary"
                         autofocus
                         {% if testing_view == 'frendj:learn' or testing_view == 'frendj:blocks' %}
                             href="{% url testing_view module.id %}"

@@ -5,9 +5,9 @@
 
 
 {% block content %}
-<div class="quiz-page">
-    <div class="quiz-layout">
-        <main class="quiz-exercise" aria-labelledby="quiz-title">
+<div class="app-page quiz-page">
+    <div class="app-layout quiz-layout">
+        <main class="app-panel app-panel-content quiz-exercise" aria-labelledby="quiz-title">
             <header class="quiz-heading">
                 <span class="quiz-language">
                     {% if phrase.language == "French" %}
@@ -65,7 +65,7 @@
 
                     <div class="quiz-actions">
                         <span></span>
-                        <button type="submit" class="btn btn-primary quiz-submit">
+                        <button type="submit" class="btn btn-primary quiz-submit" disabled>
                             Check answer
                         </button>
                     </div>
@@ -120,17 +120,26 @@ $(document).ready(function() {
     const $answerInput = $answerForm.find('input[name="answer"]');
     const $answerWords = $('#answer-words');
     const $wordBank = $('#word-bank');
+    const $submitButton = $answerForm.find('button[type="submit"]');
 
     function syncAnswer() {
-        const $answer = $answerWords.find('.quiz-word-button')
+        const answerWords = $answerWords.find('.quiz-word-button')
             .map(function () {
                 return $(this).text().trim();
             })
-            .get()
-            .join(' ');
+            .get();
         
-        $answerInput.val($answer);
+        $answerInput.val(answerWords.join(' '));
+        $submitButton.prop('disabled', answerWords.length === 0);
     }
+
+    syncAnswer();
+
+    $answerForm.on('submit', function(event) {
+        if (!$answerWords.find('.quiz-word-button').length) {
+            event.preventDefault();
+        }
+    });
 
     function returnToWordBank(button) {
         const buttonIndex = Number(button.dataset.wordIndex);

@@ -1,7 +1,7 @@
 {% load humanize %}
 
 
-<aside class="quiz-sidebar" aria-label="Learning progress">
+<aside class="app-panel app-sidebar quiz-sidebar" aria-label="Learning progress">
     <div class="quiz-profile">
         <span class="quiz-avatar" aria-hidden="true">
             <i class="fa-regular fa-user"></i>
@@ -14,7 +14,7 @@
         </div>
     </div>
 
-        {% if testing_view == "frendj:learn" or testing_view == "frendj:blocks" %}
+    {% if testing_view == "frendj:learn" or testing_view == "frendj:blocks" %}
 
             <p class="quiz-eyebrow">Current module</p>
             <h2 class="quiz-module-title">{{ module.name|title }}</h2>
@@ -40,43 +40,26 @@
                 {{ progress }}% complete &middot; {{ unlearned_count }} cards to go
             </p>
         
-        {% elif testing_view is none %}
+    {% elif testing_view is none %}
 
-        <div class="py-3">
-            <label for="prog-bar" class="text-muted small">Course progress</label>
-            <div class="progress border w-100 position-relative" id="prog-bar">
-                <div class="progress-bar progress-bar-striped bg-success"
-                    role="progressbar" style="width: {{ progress }}%;"
-                    aria-valuenow="{{ progress }}" aria-valuemin="0"
-                    aria-valuemax="100" aria-valuetext="{{ progress }}%">
-                </div>
-                <span class="progress-label {% if progress < 50 %}progress-label-low{% else %}progress-label-high{% endif %}">
-                    {{ progress }}%
-                </span>
+            <p class="quiz-eyebrow">Course progress</p>
+            <div class="quiz-progress" role="progressbar" aria-label="Course progress"
+                aria-valuenow="{{ progress }}" aria-valuemin="0" aria-valuemax="100"
+                aria-valuetext="{{ progress }}%">
+                <span style="width: {{ progress }}%;"></span>
             </div>
-        </div>
+            <p class="quiz-progress-copy">{{ progress }}% complete</p>
 
-        {% else %}
+    {% else %}
 
-        <div class="pt-3">
-            <h6>{{ testing_view|slice:"7:"|title }} Quiz</h6>
-            <p>{{ test_count }}</p>
-        </div>
-
-        <div class="py-3">
-            <label for="prog-bar" class="text-muted small">Quiz progress</label>
-            <div class="progress border w-100 position-relative" id="prog-bar">
-                <div class="progress-bar progress-bar-striped bg-success"
-                    role="progressbar" style="width: {{ progress }}%;"
-                    aria-valuenow="{{ progress }}" aria-valuemin="0"
-                    aria-valuemax="100" aria-valuetext="{{ progress }}%">
-                </div>
-                <span class="progress-label {% if progress < 50 %}progress-label-low{% else %}progress-label-high{% endif %}">
-                    {{ progress }}%
-                </span>
+            <p class="quiz-eyebrow">Current quiz</p>
+            <h2 class="quiz-module-title">{{ testing_view|slice:"7:"|title }}</h2>
+            <div class="quiz-progress" role="progressbar" aria-label="Quiz progress"
+                aria-valuenow="{{ progress }}" aria-valuemin="0" aria-valuemax="100"
+                aria-valuetext="{{ progress }}%">
+                <span style="width: {{ progress }}%;"></span>
             </div>
-        </div>
+            <p class="quiz-progress-copy">{{ test_count }} &middot; {{ progress }}% complete</p>
 
-        {% endif %}
-    </div>
+    {% endif %}
 </aside>

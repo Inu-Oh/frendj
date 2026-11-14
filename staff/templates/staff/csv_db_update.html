@@ -3,7 +3,7 @@
 
 {% block header %}
 {% if user.is_staff %} 
-<div class="container-fluid d-flex justify-content-between">
+<div class="app-page app-heading d-flex justify-content-between">
     <p class="fs-5 fw-bolder">App Content Admin</p>
     <p class="text-end fs-5">Staff profile: {{ profile.name }}</p>
 </div>
@@ -12,9 +12,9 @@
 
 
 {% block content %}
-<div class="container-fluid">
+<div class="app-page">
     {% if message %}
-        <div class="row p-3">
+        <div class="app-panel app-panel-content p-3 my-3">
             <h2 class="text-danger">There was an error</h2>
             <p class="fs-4">{{ message }}</p>
             {% if details %}
@@ -22,53 +22,57 @@
             {% endif %}
         </div>
     {% else %}
-        <div class="row p-3">
-            <div class="col-6">
-                <h5>Mass content update from CSV file</h5>
+        <div class="app-panel app-panel-content my-3">
+            <div class="row p-3">
+                <div class="col-6">
+                    <h5>Mass content update from CSV file</h5>
                     {% if changed > 0 %}
-                        <div class="w-100 py-3"><span class="text-danger fw-bolder">
-                            The following phrases will be edited in the database:</span>
-                        {% for phrase in changed_phrases %}
-                            <p class="my-2">
-                                {{ forloop.counter }}. {{ phrase }}
-                            </p>
-                        {% endfor %}
+                        <div class="w-100 py-3">
+                            <span class="text-danger fw-bolder">
+                                The following phrases will be edited in the database:
+                            </span>
+                            {% for phrase in changed_phrases %}
+                                <p class="my-2">{{ forloop.counter }}. {{ phrase }}</p>
+                            {% endfor %}
                         </div>
                     {% endif %}
                     {% if new > 0 %}
-                        <div class="w-100 py-3"><span class="text-danger fw-bolder">
-                            The following phrases will be added to the database:</span>
-                        {% for phrase in added_phrases %}
-                            <p class="my-2">
-                                {{ forloop.counter }}. {{ phrase.0 }} ({{ phrase.1 }})</p>
-                        {% endfor %}
+                        <div class="w-100 py-3">
+                            <span class="text-danger fw-bolder">
+                                The following phrases will be added to the database:
+                            </span>
+                            {% for phrase in added_phrases %}
+                                <p class="my-2">
+                                    {{ forloop.counter }}. {{ phrase.0 }} ({{ phrase.1 }})
+                                </p>
+                            {% endfor %}
                         </div>
                     {% endif %}
-                </p>
-            </div>
-            <div class="col-6">
-                <p class="fs-5">New phrases to be added {{ new }}<br>
-                    Phrases currently in database {{ current_phrase_count }}<br>
-                    Phrases that will not be changed: {{ unchanged }} <br>
-                    Phrases that will be changed: {{ changed }}</p>
-                {% if changed > 0 or new > 0 %}
-                    {% load crispy_forms_tags %}
-                    <form action="" method="post" enctype="multipart/form-data"
-                        class="csv-processing-form">
-                        {% csrf_token %}
-                        {{ submit_form|crispy }}
-                        <input type="submit" value="Submit"
-                            class="btn btn-outline-success m-2 text-dark">
-                        <input type="submit" value="Cancel &nbsp;&raquo;&nbsp; return to menu"
-                            class="btn btn-outline-danger m-2 text-dark"
-                            onclick="window.location.href='{% url 'staff:manage_content' %}';return false;">
-                    </form>
-                {% else %}
-                    <a class="btn btn-outline-warning text-dark"
-                        href="{% url 'staff:manage_content' %}">
+                </div>
+                <div class="col-6">
+                    <p class="fs-5">New phrases to be added {{ new }}<br>
+                        Phrases currently in database {{ current_phrase_count }}<br>
+                        Phrases that will not be changed: {{ unchanged }} <br>
+                        Phrases that will be changed: {{ changed }}</p>
+                    {% if changed > 0 or new > 0 %}
+                        {% load crispy_forms_tags %}
+                        <form action="" method="post" enctype="multipart/form-data"
+                            class="csv-processing-form">
+                            {% csrf_token %}
+                            {{ submit_form|crispy }}
+                            <input type="submit" value="Submit"
+                                class="btn auth-button auth-primary m-2">
+                            <input type="submit" value="Cancel &nbsp;&raquo;&nbsp; return to menu"
+                                class="btn auth-button auth-danger m-2"
+                                onclick="window.location.href='{% url 'staff:manage_content' %}';return false;">
+                        </form>
+                    {% else %}
+                        <a class="btn btn-outline-warning text-dark"
+                            href="{% url 'staff:manage_content' %}">
                             Nothing to change &nbsp;&raquo;&nbsp; return to menu
-                    </a>
-                {% endif %}
+                        </a>
+                    {% endif %}
+                </div>
             </div>
         </div>
     {% endif %}

@@ -2,8 +2,8 @@
 
 
 {% block content %}
-<div id="register" class="p-5">
-    <h1 class="display-3 text-muted pt-3">Register a new account</h1>
+<div id="register" class="app-panel app-panel-content">
+    <h1 class="display-5 text-muted pt-3">Register a new account</h1>
 
     {% if form.errors %}
         <p>Your username and password didn't match. Please try again.</p>
@@ -15,9 +15,12 @@
             {% csrf_token %}
             {{ form|crispy }}
             <div class="container-fluid pt-4 d-flex justify-content-between">
-                <button type="submit" class="btn btn-primary">Sign Up</button>
-                <a class="btn btn-success" href="{% url 'accounts:login' %}">
-                    Back to Login &raquo;</a>
+                <button type="submit" class="btn auth-button auth-primary">
+                    Sign Up &raquo;
+                </button>
+                <a class="btn auth-button auth-secondary" href="{% url 'accounts:login' %}">
+                    Back to Login &raquo;
+                </a>
             </div>
         </form>
     </div>

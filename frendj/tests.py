@@ -52,6 +52,31 @@ class ProfileTestCase(TestCase):
         self.assertFalse(negative_xp_profile.is_valid_profile())
 
 
+class ProfileCreateViewTestCase(TestCase):
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="profile-creator")
+        self.client.force_login(self.user)
+        Phrase.objects.create(language="French", phrase="Bonjour")
+
+    def test_repeat_submission_does_not_create_duplicate_profile_or_progress(self):
+        url = reverse("frendj:create_profile")
+        first_response = self.client.post(url, {"name": "First name"})
+        second_response = self.client.post(url, {"name": "Second name"})
+
+        self.assertRedirects(
+            first_response, reverse("frendj:home"), fetch_redirect_response=False
+        )
+        self.assertRedirects(
+            second_response, reverse("frendj:home"), fetch_redirect_response=False
+        )
+        self.assertEqual(Profile.objects.filter(user=self.user).count(), 1)
+        self.assertEqual(Profile.objects.get(user=self.user).name, "First name")
+        self.assertEqual(
+            UserPhraseStrength.objects.filter(user=self.user).count(), 1
+        )
+
+
 class ModuleTestCase(TestCase):
 
     def setUp(self):
