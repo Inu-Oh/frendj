@@ -3,7 +3,7 @@ from django.shortcuts import render
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
 from django.db.models import Count, Exists, ExpressionWrapper, F, IntegerField, OuterRef, Q, Sum, Value
-from django.db.models.functions import ExtractDay, Greatest, NullIf
+from django.db.models.functions import Cast, ExtractDay, Greatest, NullIf, Round
 from django.http import HttpResponseRedirect
 from django.shortcuts import redirect, render
 from django.utils import timezone
@@ -302,7 +302,8 @@ class ProfileCreateView(LoginRequiredMixin, CreateView):
         if not form.is_valid():
             context = {'form': form}
             return render(request, self.template_name, context)
-        
+
+        # If profile is already created, logic prevents duplicate creation.
         with transaction.atomic():
             _, created = Profile.objects.get_or_create(
                 user=request.user,
@@ -425,13 +426,25 @@ class ModulesView(LoginRequiredMixin, ListView):
                 ),
                 distinct=True,
             ),
-            progress=ExpressionWrapper(
-                F('learned_phrase_count') * 100 / NullIf(F('phrase_count'), Value(0)),
+            progress=Cast(
+                Round(
+                    F('learned_phrase_count') * Value(100.0)
+                    / NullIf(F('phrase_count'), Value(0))
+                ),
                 output_field=IntegerField(),
             ),
-            total_strength=Sum('phrases_in_module__userphrasestrength__strength'),
+            total_strength=Sum(
+                'phrases_in_module__userphrasestrength__strength',
+                filter=Q(
+                    phrases_in_module__userphrasestrength__user=request.user,
+                    phrases_in_module__userphrasestrength__learned=True,
+                ),
+            ),
             strength=ExpressionWrapper(
-                F('total_strength') / NullIf(F('learned_phrase_count'), Value(0)),
+                Round(
+                    F('total_strength')
+                    / NullIf(F('learned_phrase_count'), Value(0)),
+                ),
                 output_field=IntegerField(),
             ),
             has_unlearned_phrase=Exists(unlearned_phrases),

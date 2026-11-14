@@ -383,6 +383,27 @@ class ModulesViewTestCase(TestCase):
         self.assertEqual(response.context["progress"], 0)
         self.assertFalse(response.context["modules"][0].has_unlearned_phrase)
 
+    def test_module_progress_rounds_instead_of_truncating(self):
+        module = Module.objects.create(name="Low Progress Module")
+        phrases = [
+            Phrase.objects.create(
+                language="French", phrase=f"Progress Phrase {index}", module=module
+            )
+            for index in range(6)
+        ]
+        UserPhraseStrength.objects.create(
+            user=self.user, phrase=phrases[0], learned=True
+        )
+
+        response = self.client.get(reverse("frendj:modules"))
+        annotated_module = next(
+            item for item in response.context["modules"]
+            if item.pk == module.pk
+        )
+
+        self.assertIsInstance(annotated_module.progress, int)
+        self.assertEqual(annotated_module.progress, 17)
+
 
 class ResetViewTestCase(TestCase):
 
