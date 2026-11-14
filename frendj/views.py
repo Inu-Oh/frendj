@@ -312,16 +312,6 @@ class ProfileCreateView(LoginRequiredMixin, CreateView):
             if not created:
                 return redirect(reverse_lazy('frendj:home'))
 
-            # For all phrases, set user strength to 0 and learned to false
-            for phrase in Phrase.objects.all():
-                UserPhraseStrength.objects.create(
-                    phrase=phrase,
-                    user=request.user,
-                    learned=False,
-                    strength=0,
-                    views=0,
-                    correct=0,
-                )
         return redirect(reverse_lazy('frendj:home'))
 
 

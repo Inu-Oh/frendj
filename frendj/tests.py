@@ -57,9 +57,8 @@ class ProfileCreateViewTestCase(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username="profile-creator")
         self.client.force_login(self.user)
-        Phrase.objects.create(language="French", phrase="Bonjour")
 
-    def test_repeat_submission_does_not_create_duplicate_profile_or_progress(self):
+    def test_repeat_submission_does_not_create_duplicate_profile(self):
         url = reverse("frendj:create_profile")
         first_response = self.client.post(url, {"name": "First name"})
         second_response = self.client.post(url, {"name": "Second name"})
@@ -72,9 +71,6 @@ class ProfileCreateViewTestCase(TestCase):
         )
         self.assertEqual(Profile.objects.filter(user=self.user).count(), 1)
         self.assertEqual(Profile.objects.get(user=self.user).name, "First name")
-        self.assertEqual(
-            UserPhraseStrength.objects.filter(user=self.user).count(), 1
-        )
 
 
 class ModuleTestCase(TestCase):

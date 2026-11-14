@@ -22,34 +22,4 @@
         </form>
     </div>
 
-    <div id="profile-loading-overlay" class="csv-loading-overlay d-none"
-        role="status" aria-live="polite" aria-label="Setting up user progress tracking">
-        <div class="text-center">
-            <div class="spinner-border text-success" aria-hidden="true"></div>
-            <p class="mt-2 mb-0 fw-semibold">
-                Setting up your progress tracking.
-                Please wait; you will be redirected shortly.
-            </p>
-        </div>
-    </div>
-
 {% endblock content %}
-
-{% block script %}
-<script>
-$(document).ready(function() {
-    let isSubmitting = false;
-
-    $('.profile-creation-form').on('submit', function(event) {
-        if (isSubmitting) {
-            event.preventDefault();
-            return;
-        }
-
-        isSubmitting = true;
-        $(this).find(':submit').prop('disabled', true);
-        $('#profile-loading-overlay').removeClass('d-none');
-    });
-});
-</script>
-{% endblock script %}
