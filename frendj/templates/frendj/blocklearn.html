@@ -107,6 +107,21 @@
             <p class="quiz-progress-copy">
                 {{ module_progress }}% complete &middot; {{ unlearned_count }} cards to go
             </p>
+
+            <div class="quiz-mode-switch">
+                <div class="quiz-mode-copy">
+                    <h5>Level up</h5>
+                    <small>Use keyboard</small>
+                </div>
+                <a href="{% url 'frendj:learn' module.id %}"
+                    class="btn btn-primary quiz-mode-button"
+                    aria-label="Switch to keyboard learning mode">
+                    <i class="fa-regular fa-keyboard quiz-mode-keyboard-icon"
+                        aria-hidden="true"></i>
+                    Type
+                </a>
+            </div>
+
         </aside>
     </div>
 </div>

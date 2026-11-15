@@ -7,9 +7,7 @@
 {% block content %}
 <div class="app-page app-layout">
     <div>
-
         {% include 'test_card.html' %}
-
     </div>
 
     <aside class="app-panel app-sidebar quiz-sidebar" aria-label="Learning progress">
@@ -49,6 +47,20 @@
             {{ module_progress }}% complete &middot; {{ unlearned_count }} cards to go
         </p>
 
+        <div class="quiz-mode-switch">
+            <div class="quiz-mode-copy">
+                <h5>Quiz easy</h5>
+                <small>Use word bank</small>
+            </div>
+            <a href="{% url 'frendj:blocks' module.id %}"
+                class="btn btn-primary quiz-mode-button"
+                aria-label="Switch to word-bank learning mode">
+                <span class="quiz-mode-square-icons" aria-hidden="true">
+                    <i class="fa-solid fa-cubes-stacked quiz-mode-square-icon"></i>
+                </span>
+                <span>Tiles</span>
+            </a>
+        </div>
     </aside>
 </div>
 {% endblock content %}
