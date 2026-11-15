@@ -2,6 +2,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.validators import MinLengthValidator
 from django.db import models
+from django.db.models.functions import Lower
 
 
 class Module(models.Model):
@@ -40,7 +41,10 @@ class Phrase(models.Model):
 
     class Meta: # Converted from unique_together to Meta.indexes - run: python -Wa manage.py test
         constraints = [ # models.functions.Lower('name'),
-            models.UniqueConstraint(fields=['phrase', 'language'], name='unique_phrase_language')
+            models.UniqueConstraint(
+                fields=['phrase', 'language'],
+                name='unique_phrase_language'
+            )
         ]
 
     def is_valid_phrase(self):
@@ -86,6 +90,39 @@ class Translation(models.Model):
 
     def __str__(self):
         return f'{self.translation} ({self.phrase})'
+
+
+class Distractor(models.Model):
+    FRENCH = "French"
+    ENGLISH = "English"
+    LANGUAGES = [
+        (FRENCH, "French"),
+        (ENGLISH, "English")
+    ]
+    language = models.CharField(max_length=12, choices=LANGUAGES, default=FRENCH)
+    word = models.CharField(
+        max_length=24,
+        validators=[MinLengthValidator(1, "Distractor word is too short")]
+    )
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def is_valid_destractor(self):
+        valid_languages = ["French", "English"]
+        distractor_language_test = self.language in valid_languages
+        distractor_length_test = 1 <= len(self.word) <= 24
+        return (distractor_language_test and distractor_length_test)
+
+    def __str__(self):
+        return f'{self.word} ({self.language[:2].upper()})'
+
+    class Meta: constraints = [
+        models.UniqueConstraint(
+            'language',
+            Lower('word'),
+            name='unique_distractor_language_word'
+        )
+    ]
 
 
 class UserPhraseStrength(models.Model):
