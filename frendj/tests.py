@@ -182,7 +182,35 @@ class DistractorTestCase(TestCase):
     def setUp(self):
 
         # Create distractors
-        Distr
+        Distractor.objects.create(language="English", word="hello", core_vocab=True)
+        Distractor.objects.create(language="French", word="le", core_vocab=True)
+        Distractor.objects.create(language="French", word="enregistrement", core_vocab=False)
+        Distractor.objects.create(language="Korean", word="jamkkanmanyo", core_vocab=True)
+        Distractor.objects.create(language="English", word="", core_vocab=False)
+
+    def test_french_distractor_count(self):
+        french_distractors = Distractor.objects.filter(language="French")
+        self.assertEqual(french_distractors.count(), 2)
+
+    def test_core_vocab_count(self):
+        core_vocab_distractors = Distractor.objects.filter(core_vocab=True)
+        self.assertEqual(core_vocab_distractors.count(), 3)
+
+    def test_valid_translation(self):
+        valid_distractor = Distractor.objects.get(word="le")
+        self.assertTrue(valid_distractor.is_valid_distractor())
+
+    def test_invalid_distractor_wrong_language(self):
+        korean_distractor = Distractor.objects.get(word="jamkkanmanyo")
+        self.assertFalse(korean_distractor.is_valid_distractor())
+
+    def test_invalid_distractor_no_chars(self):
+        blank_distructor = Distractor.objects.get(language="English", word="", core_vocab=False)
+        self.assertFalse(blank_distructor.is_valid_distractor())
+
+    def test_invalid_distractor_too_long(self):
+        long_distractor = Distractor(language="French", word="anticonstitutionnellement")
+        self.assertFalse(long_distractor.is_valid_distractor())
 
 
 class UserPhraseStrengthTestCase(TestCase):

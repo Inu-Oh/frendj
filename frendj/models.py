@@ -108,7 +108,7 @@ class Distractor(models.Model):
 
     updated_at = models.DateTimeField(auto_now=True)
 
-    def is_valid_destractor(self):
+    def is_valid_distractor(self):
         valid_languages = ["French", "English"]
         distractor_language_test = self.language in valid_languages
         distractor_length_test = 1 <= len(self.word) <= 24
