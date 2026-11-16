@@ -104,6 +104,7 @@ class Distractor(models.Model):
         max_length=24,
         validators=[MinLengthValidator(1, "Distractor word is too short")]
     )
+    core_vocab = models.BooleanField(default=False)
 
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -111,7 +112,9 @@ class Distractor(models.Model):
         valid_languages = ["French", "English"]
         distractor_language_test = self.language in valid_languages
         distractor_length_test = 1 <= len(self.word) <= 24
-        return (distractor_language_test and distractor_length_test)
+        core_val_test = self.core_vocab in [True, False]
+        return (distractor_language_test and distractor_length_test
+                and core_val_test)
 
     def __str__(self):
         return f'{self.word} ({self.language[:2].upper()})'

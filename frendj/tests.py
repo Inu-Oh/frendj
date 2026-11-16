@@ -9,7 +9,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from accounts.models import Profile
-from .models import Module, Phrase, Translation, UserPhraseStrength
+from .models import Module, Phrase, Translation, Distractor, UserPhraseStrength
 from .views import feedback
 
 
@@ -175,6 +175,14 @@ class TranslationTestCase(TestCase):
     def test_invalid_translation_module_name_too_short(self):
         short_name_module_tranaslation = Translation.objects.get(translation="Kookoo")
         self.assertFalse(short_name_module_tranaslation.is_valid_translation())
+
+
+class DistractorTestCase(TestCase):
+
+    def setUp(self):
+
+        # Create distractors
+        Distr
 
 
 class UserPhraseStrengthTestCase(TestCase):
