@@ -9,7 +9,7 @@ from django.utils import timezone
 from django.urls import reverse_lazy
 from django.views.generic import UpdateView, CreateView, ListView, View
 
-from frendj.models import Module, Phrase, Translation, UserPhraseStrength
+from frendj.models import Module, Phrase, Translation, Distractor, UserPhraseStrength
 from accounts.models import Profile
 
 from .forms import ModuleForm, CreatePhraseForm, CreateTranslationForm, UpdatePhraseForm, UpdateTranslationForm, CsvTestForm, CsvSubmitForm
@@ -990,3 +990,41 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
         
         success_url = reverse_lazy('frendj:glossary')
         return redirect(success_url)
+
+
+class DistractorTestView(PermissionRequiredMixin, ListView):
+    """
+    Admin page. Tests whether import_distractos.csv is correctly populated to mass
+    edit DB data. Otherwise it provides feedback on errors that need correction.
+    """
+
+    permission_required = [
+        'frendj.add_distractor',
+        'frendj.change_distractor',
+    ]
+    template_name = 'staff/distractor_test.html'
+
+    def get(self, request):
+        pass
+
+    def post(self, request):
+        pass
+
+
+class DistractorUpdateView(PermissionRequiredMixin, ListView):
+    """
+    Admin page. GET shows summary of changes that will be made to the database based on
+    import_distractor.csv. If the CSV is free of errors, POST updates the Postgres DB.
+    """
+
+    permission_required = [
+        'frendj.add_distractor',
+        'frendj.change_distractor',
+    ]
+    template_name = 'staff/distractor_test.html'
+
+    def get(self, request):
+        pass
+
+    def post(self, request):
+        pass 
