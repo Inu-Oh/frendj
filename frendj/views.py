@@ -1060,9 +1060,12 @@ class FeedbackView(LoginRequiredMixin, View):
             learned_count = stats['learned_count']
             unlearned_count = total - learned_count
             progress = round( (learned_count / total) * 100 ) if total > 0 else 0
+            phrase_count = request.session['phrase_count'],
+            module_strength = request.session['module_strength']
         else:
             learned_count, unlearned_count = None, None
             progress = round( ( (request.session['test_count'] - 1) / QUIZ_LENGTH ) * 100 )
+            phrase_count = module_strength = None
 
         # Choose one result phrase for feedback
         if response_accuracy:
@@ -1089,8 +1092,8 @@ class FeedbackView(LoginRequiredMixin, View):
             'learned_count': learned_count,
             'unlearned_count': unlearned_count,
             'progress': progress,
-            'phrase_count': request.session['phrase_count'],
-            'module_strength': request.session['module_strength'],
+            'phrase_count': phrase_count,
+            'module_strength': module_strength,
             'result': result,
         }
         return render(request, self.template_name, context)

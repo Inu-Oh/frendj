@@ -37,7 +37,9 @@
                 <div class="quiz-answer-heading">
                     <span id="quiz-answer-label">Your answer</span>
                 </div>
-                <div id="answer-words" class="quiz-answer fw-bold fs-4" aria-labelledby="quiz-answer-label"
+                <div id="feedback" class="quiz-answer fw-bold fs-4"
+                    data-feedback-class="{% if response_accuracy %}feedback-success{% else %}feedback-failure{% endif %}"
+                    aria-labelledby="quiz-answer-label"
                     aria-describedby="quiz-answer-instructions">
                     {% if feedback_html %}
                         {{ feedback_html|safe }}
@@ -70,6 +72,12 @@
 {% block script %}
 <script>
 $(document).ready(function() {
+    const feedback = $('#feedback');
+    const feedbackClass = feedback.data('feedback-class');
+    if (feedbackClass) {
+        feedback.addClass(feedbackClass);
+    }
+
     $(document).on('keydown', function(e) {
         if (e.key === 'Enter') {
             // $('#feedback-button').click(); // firgure out why this jQuery not working
