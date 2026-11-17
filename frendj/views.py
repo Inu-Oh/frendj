@@ -28,7 +28,7 @@ INITIATE_COUNT, UNASSESSED_ACCURACY, UNASSESSED_SCORE, MAX_ERRORS = 1, False, -1
 PLUS_2_XP, PLUS_5_XP, PLUS_9_XP, QUIZ_LENGTH, RESET_TEST_COUNT, RESET_SCORE = 2, 5, 9, 12, 1, 0
 
 
-def clear_data_from_session(request, *previous_question_data) -> None:
+def clear_session_data(request, *previous_question_data) -> None:
     if request.session.get(previous_question_data[0]):
         for data_key in previous_question_data:
             try:
@@ -224,8 +224,8 @@ class Home(LoginRequiredMixin, TemplateView):
         # Delete session data from exercises if it exists
         session_data_keys = ['phrase', 'module_id', 'xp_reward', 'response_accuracy', 
             'user_phrase_strength_id', 'phrase_language', 'feedback_html',
-            'matched_translation', 'testing_view', 'phrase_count', 'module_strength']
-        clear_data_from_session(request, *session_data_keys)
+            'matched_translation', 'testing_view', 'module_strength']
+        clear_session_data(request, *session_data_keys)
         # Test count for Practice, Review and Accent Quiz views is set here, incremented
         # and deleted in respective Quiz view. This circumvents Django bug that fails to delete session data.
         request.session.update({
@@ -439,7 +439,7 @@ class LearnView(LoginRequiredMixin, View):
         # Clear session data for previously tested phrase if present
         prev_card_sess_keys = ['user_phrase_strength_id', 'phrase_id', 
             'response_accuracy', 'feedback_html', 'xp_reward', 'matched_translation']
-        clear_data_from_session(request,*prev_card_sess_keys)
+        clear_session_data(request,*prev_card_sess_keys)
 
         # Get data for current phrase to test and context
         profile = Profile.objects.get(user=request.user)
@@ -464,7 +464,6 @@ class LearnView(LoginRequiredMixin, View):
             user_phrase_strength = user_phrase_data.filter(learned=False).order_by('?').first() 
             request.session.update({
                 'user_phrase_strength_id': user_phrase_strength.id,
-                'phrase_count':counts['total'],
                 'module_strength': avg_strength,
             }) 
             module_progress = round(
@@ -560,7 +559,7 @@ class BlockLearnView(LoginRequiredMixin, View):
         # Clear session data for previously tested phrase if present
         prev_card_sess_keys = ['user_phrase_strength_id', 'phrase_id', 
             'response_accuracy', 'feedback_html', 'xp_reward', 'matched_translation']
-        clear_data_from_session(request,*prev_card_sess_keys)
+        clear_session_data(request,*prev_card_sess_keys)
 
         # Get data for current phrase to test and context
         profile = Profile.objects.get(user=request.user)
@@ -595,7 +594,6 @@ class BlockLearnView(LoginRequiredMixin, View):
 
             request.session.update({
                 'user_phrase_strength_id': user_phrase_strength.id,
-                'phrase_count': counts['total'],
                 'module_strength': avg_strength,
             }) 
             module_progress = round(
@@ -698,7 +696,7 @@ class PracticeView(LoginRequiredMixin, View):
         # Clear session data for previously tested phrase if present
         prev_card_sess_keys = ['phrase_id', 'response_accuracy', 'feedback_html',
                                'xp_reward', 'matched_translation']
-        clear_data_from_session(request,*prev_card_sess_keys)
+        clear_session_data(request,*prev_card_sess_keys)
 
         # Select question or redirect if not abailable. Add context.
         profile = Profile.objects.get(user=request.user)
@@ -807,7 +805,7 @@ class ReviewView(LoginRequiredMixin, View):
         # Clear session data for previously tested phrase if present
         prev_card_sess_keys = ['phrase_id', 'response_accuracy', 'feedback_html',
                                'xp_reward', 'matched_translation']
-        clear_data_from_session(request,*prev_card_sess_keys)
+        clear_session_data(request,*prev_card_sess_keys)
 
         # Select question or redirect if not abailable. Add context.
         profile = Profile.objects.get(user=request.user)
@@ -917,7 +915,7 @@ class AccentView(LoginRequiredMixin, View):
         # Clear session data for previously tested phrase if present
         prev_card_sess_keys = ['user_phrase_strength_id', 'phrase_id', 
             'response_accuracy', 'feedback_html', 'xp_reward', 'matched_translation']
-        clear_data_from_session(request,*prev_card_sess_keys)
+        clear_session_data(request,*prev_card_sess_keys)
 
         profile = Profile.objects.get(user=request.user)
         form = TestForm()
@@ -1056,26 +1054,15 @@ class FeedbackView(LoginRequiredMixin, View):
                         ),
                 )
             )
-            total = stats['module_phrase_count']
+            phrases = stats['module_phrase_count']
             learned_count = stats['learned_count']
-            unlearned_count = total - learned_count
-            progress = round( (learned_count / total) * 100 ) if total > 0 else 0
-            phrase_count = request.session['phrase_count'],
+            unlearned_count = phrases - learned_count
+            progress = round( (learned_count / phrases) * 100 ) if phrases > 0 else 0
             module_strength = request.session['module_strength']
         else:
             learned_count, unlearned_count = None, None
             progress = round( ( (request.session['test_count'] - 1) / QUIZ_LENGTH ) * 100 )
-            phrase_count = module_strength = None
-
-        # Choose one result phrase for feedback
-        if response_accuracy:
-            correct = ["Amazing", "Awesome", "Great", "Yes!", "You got it", "Wow",
-                "You're good at this", "You're great!", "You're awesome"]
-            result = choice(correct)
-        else:
-            wrong = ["Better luck next time", "Keep practicing", "Keep at it",
-                "You'll get it next time", "It'll stick eventually"]
-            result = choice(wrong)
+            phrases = module_strength = None
 
         context = {
             'testing_view': testing_view,
@@ -1092,8 +1079,7 @@ class FeedbackView(LoginRequiredMixin, View):
             'learned_count': learned_count,
             'unlearned_count': unlearned_count,
             'progress': progress,
-            'phrase_count': phrase_count,
+            'phrase_count': phrases,
             'module_strength': module_strength,
-            'result': result,
         }
         return render(request, self.template_name, context)

@@ -6,17 +6,6 @@
 <div class="app-page quiz-page">
     <div class="app-layout quiz-layout">
         <main class="app-panel app-panel-content quiz-exercise" aria-labelledby="quiz-title">
-            <header class="quiz-heading">
-                <h3 class="quiz-title">
-                    <i class="fa-regular fa-comment"></i> &nbsp; {{ result }} &nbsp;
-                    <span class="text-success fw-bold">
-                        {% if response_accuracy == True %}
-                            +{{ xp_reward }} XP
-                        {% endif %}
-                    </span>
-                </h3>
-            </header>
-
             <section class="quiz-answer-key">
                 {% if not phrase %}
                     Error with feedback on testing phrase
@@ -35,7 +24,14 @@
 
             <div>
                 <div class="quiz-answer-heading">
-                    <span id="quiz-answer-label">Your answer</span>
+                    <span id="quiz-answer-label">
+                        Your answer
+                        {% if response_accuracy == True %}
+                            <span id="xp-reward" class="text-success fw-bold fs-6">
+                                +{{ xp_reward }} XP
+                            </span>
+                        {% endif %}
+                    </span>
                 </div>
                 <div id="feedback" class="quiz-answer fw-bold fs-4"
                     data-feedback-class="{% if response_accuracy %}feedback-success{% else %}feedback-failure{% endif %}"
