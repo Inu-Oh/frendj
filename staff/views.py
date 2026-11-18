@@ -12,7 +12,7 @@ from django.views.generic import UpdateView, CreateView, ListView, View
 from frendj.models import Module, Phrase, Translation, Distractor, UserPhraseStrength
 from accounts.models import Profile
 
-from .forms import ModuleForm, CreatePhraseForm, CreateTranslationForm, UpdatePhraseForm, UpdateTranslationForm, CsvTestForm, CsvSubmitForm
+from .forms import ModuleForm, CreatePhraseForm, CreateTranslationForm, UpdatePhraseForm, UpdateTranslationForm, CsvForm
     
 
 class StaffMenuView(LoginRequiredMixin, ListView):
@@ -22,8 +22,7 @@ class StaffMenuView(LoginRequiredMixin, ListView):
     
     def get(self, request):
         if not request.user.is_staff:
-            non_staff_url = 'frendj:home'
-            return redirect(non_staff_url)
+            return redirect('frendj:home')
         
         profile = Profile.objects.get(user=request.user)
         modules = Module.objects.all().order_by('name')
@@ -49,8 +48,7 @@ class CreateModuleView(PermissionRequiredMixin, CreateView):
     
     def get(self, request):
         if not request.user.is_staff:
-            non_staff_url = 'frendj:home'
-            return redirect(non_staff_url)
+            return redirect('frendj:home')
         
         form = ModuleForm()
         context = {'form': form}
@@ -58,8 +56,7 @@ class CreateModuleView(PermissionRequiredMixin, CreateView):
 
     def post(self, request):
         if not request.user.is_staff:
-            non_staff_url = 'frendj:home'
-            return redirect(non_staff_url)
+            return redirect('frendj:home')
         
         form = ModuleForm(request.POST)
 
@@ -69,8 +66,7 @@ class CreateModuleView(PermissionRequiredMixin, CreateView):
         
         # Save new module and redirect to add phrases to this module
         module = form.save()
-        success_url = reverse_lazy('staff:add_phrase', kwargs={'pk': module.id})
-        return redirect(success_url)
+        return redirect(reverse_lazy('staff:add_phrase', kwargs={'pk': module.id}))
 
 
 class CreatePhraseView(PermissionRequiredMixin, CreateView):
@@ -81,8 +77,7 @@ class CreatePhraseView(PermissionRequiredMixin, CreateView):
     
     def get(self, request, pk):
         if not request.user.is_staff:
-            non_staff_url = 'frendj:home'
-            return redirect(non_staff_url)
+            return redirect('frendj:home')
 
         module = Module.objects.get(id=pk)
         phrases = Phrase.objects.filter(module=module)
@@ -92,8 +87,7 @@ class CreatePhraseView(PermissionRequiredMixin, CreateView):
 
     def post(self, request, pk):
         if not request.user.is_staff:
-            non_staff_url = 'frendj:home'
-            return redirect(non_staff_url)
+            return redirect('frendj:home')
         
         form = CreatePhraseForm(request.POST)
         module = Module.objects.get(id=pk)
@@ -120,8 +114,7 @@ class CreatePhraseView(PermissionRequiredMixin, CreateView):
                 correct = 0
             )
             
-        success_url = reverse_lazy('staff:add_phrase', kwargs={'pk': pk})
-        return redirect(success_url)
+        return redirect(reverse_lazy('staff:add_phrase', kwargs={'pk': pk}))
 
 
 class CreateTranslationView(PermissionRequiredMixin, CreateView):
@@ -132,8 +125,7 @@ class CreateTranslationView(PermissionRequiredMixin, CreateView):
     
     def get(self, request, pk):
         if not request.user.is_staff:
-            non_staff_url = 'frendj:home'
-            return redirect(non_staff_url)
+            return redirect('frendj:home')
         
         phrase = Phrase.objects.get(id=pk)
         phrase_lang = phrase.language
@@ -155,8 +147,7 @@ class CreateTranslationView(PermissionRequiredMixin, CreateView):
     
     def post(self, request, pk):
         if not request.user.is_staff:
-            non_staff_url = 'frendj:home'
-            return redirect(non_staff_url)
+            return redirect('frendj:home')
         
         form = CreateTranslationForm(request.POST)
         phrase = Phrase.objects.get(id=pk)
@@ -183,8 +174,7 @@ class CreateTranslationView(PermissionRequiredMixin, CreateView):
         translation.language = translation_lang
         translation.save()
 
-        success_url = reverse_lazy('staff:add_translation', kwargs={'pk': pk})
-        return redirect(success_url)
+        return redirect(reverse_lazy('staff:add_translation', kwargs={'pk': pk}))
 
 
 # Three views for editing content
@@ -196,8 +186,7 @@ class UpdateModuleView(PermissionRequiredMixin, UpdateView):
     
     def get(self, request, pk):
         if not request.user.is_staff:
-            non_staff_url = 'frendj:home'
-            return redirect(non_staff_url)
+            return redirect('frendj:home')
         
         module = Module.objects.get(id=pk)
         form = ModuleForm(instance=module)
@@ -206,8 +195,7 @@ class UpdateModuleView(PermissionRequiredMixin, UpdateView):
     
     def post(self, request, pk):
         if not request.user.is_staff:
-            non_staff_url = 'frendj:home'
-            return redirect(non_staff_url)
+            return redirect('frendj:home')
         
         module = get_object_or_404(Module, id=pk)
         form = ModuleForm(request.POST, instance=module)
@@ -217,8 +205,7 @@ class UpdateModuleView(PermissionRequiredMixin, UpdateView):
             return render(request, self.template_name, context)
 
         form.save()
-        success_url = reverse_lazy('staff:manage_content')
-        return redirect(success_url)
+        return redirect(reverse_lazy('staff:manage_content'))
 
 
 class UpdatePhraseView(PermissionRequiredMixin, UpdateView):
@@ -229,8 +216,7 @@ class UpdatePhraseView(PermissionRequiredMixin, UpdateView):
     
     def get(self, request, pk):
         if not request.user.is_staff:
-            non_staff_url = 'frendj:home'
-            return redirect(non_staff_url)
+            return redirect('frendj:home')
         
         phrase = Phrase.objects.get(id=pk)
         form = UpdatePhraseForm(instance=phrase)
@@ -240,8 +226,7 @@ class UpdatePhraseView(PermissionRequiredMixin, UpdateView):
     
     def post(self, request, pk):
         if not request.user.is_staff:
-            non_staff_url = 'frendj:home'
-            return redirect(non_staff_url)
+            return redirect('frendj:home')
         
         phrase = get_object_or_404(Phrase, id=pk)
         form = UpdatePhraseForm(request.POST, instance=phrase)
@@ -252,8 +237,7 @@ class UpdatePhraseView(PermissionRequiredMixin, UpdateView):
             return render(request, self.template_name, context)
 
         form.save()
-        success_url = reverse_lazy('staff:manage_content')
-        return redirect(success_url)
+        return redirect(reverse_lazy('staff:manage_content'))
 
 
 class UpdateTranslationView(PermissionRequiredMixin, UpdateView):
@@ -264,8 +248,7 @@ class UpdateTranslationView(PermissionRequiredMixin, UpdateView):
     
     def get(self, request, pk):
         if not request.user.is_staff:
-            non_staff_url = 'frendj:home'
-            return redirect(non_staff_url)
+            return redirect('frendj:home')
     
         translation = Translation.objects.get(id=pk)
         translation_lang = translation.language
@@ -283,8 +266,7 @@ class UpdateTranslationView(PermissionRequiredMixin, UpdateView):
 
     def post(self, request, pk):
         if not request.user.is_staff:
-            non_staff_url = 'frendj:home'
-            return redirect(non_staff_url)
+            return redirect('frendj:home')
         
         translation = get_object_or_404(Translation, id=pk)
         translation_lang = translation.language
@@ -304,8 +286,7 @@ class UpdateTranslationView(PermissionRequiredMixin, UpdateView):
         translation = form.save(commit=False)
         translation.language = translation_lang
         form.save()
-        success_url = reverse_lazy('staff:manage_content')
-        return redirect(success_url)
+        return redirect(reverse_lazy('staff:manage_content'))
 
 
 # Two views for mass database updates from CSV to SQL
@@ -327,10 +308,9 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
 
     def get(self, request):
         if not request.user.is_superuser:
-            non_staff_url = 'frendj:home'
-            return redirect(non_staff_url)
+            return redirect('frendj:home')
         profile = Profile.objects.get(user=request.user)
-        test_form = CsvTestForm()
+        test_form = CsvForm()
 
         context = {
             'profile': profile,
@@ -340,10 +320,9 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
 
     def post(self, request):
         if not request.user.is_superuser:
-            non_staff_url = 'frendj:home'
-            return redirect(non_staff_url)
+            return redirect('frendj:home')
         profile = Profile.objects.get(user=request.user)
-        test_form = CsvTestForm(request.POST)
+        test_form = CsvForm(request.POST)
         if not test_form.is_valid():
             context = {
                 'profile': profile,
@@ -541,9 +520,8 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
             }
             return render(request, self.template_name, context)
 
-        # If successful redirect to submit page
-        success_url = reverse_lazy('staff:csv_db_update') 
-        return redirect(success_url)
+        # If successful redirect to update DB page
+        return redirect(reverse_lazy('staff:csv_db_update') )
 
 
 class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
@@ -564,12 +542,11 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
 
     def get(self, request):
         if not request.user.is_superuser:
-            non_staff_url = 'frendj:home'
-            return redirect(non_staff_url)
+            return redirect('frendj:home')
         profile = Profile.objects.get(user=request.user)
         phrases = Phrase.objects.all()
         translations = Translation.objects.all()
-        submit_form = CsvSubmitForm() 
+        submit_form = CsvForm() 
 
         # Try to create from CSV file a list of dictionaries to verify SQL data
         data_list = []
@@ -713,13 +690,12 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
 
     def post(self, request):
         if not request.user.is_superuser:
-            non_staff_url = 'frendj:home'
-            return redirect(non_staff_url)
+            return redirect('frendj:home')
         profile = Profile.objects.get(user=request.user)
         modules = Module.objects.all()
         phrases = Phrase.objects.all()
         translations = Translation.objects.all()
-        submit_form = CsvSubmitForm(request.POST)
+        submit_form = CsvForm(request.POST)
         if not submit_form.is_valid():
             message = "The update failed due to an invalid form. Contact IT for support."
             context = {
@@ -988,8 +964,7 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
                     }
                 )
         
-        success_url = reverse_lazy('frendj:glossary')
-        return redirect(success_url)
+        return redirect(reverse_lazy('frendj:glossary'))
 
 
 class DistractorTestView(PermissionRequiredMixin, ListView):
@@ -1005,9 +980,21 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
     template_name = 'staff/distractor_test.html'
 
     def get(self, request):
-        pass
+        if not request.user.is_superuser:
+            redirect('frendj:home')
+
+        profile = Profile.objects.get(user=request.user)
+        test_form = CsvForm()
+
+        context = {
+            'profile': profile,
+            'test_form': test_form,
+        }
+        return render(request, self.template_name, context)
 
     def post(self, request):
+        if not request.user.is_superuser:
+            redirect('frendj:home')
         pass
 
 
@@ -1021,10 +1008,22 @@ class DistractorUpdateView(PermissionRequiredMixin, ListView):
         'frendj.add_distractor',
         'frendj.change_distractor',
     ]
-    template_name = 'staff/distractor_test.html'
+    template_name = 'staff/distractor_update.html'
 
     def get(self, request):
-        pass
+        if not request.user.is_superuser:
+            redirect('frendj:home')
+
+        profile = Profile.objects.get(user=request.user)
+        update_form = CsvForm()
+
+        context = {
+            'profile': profile,
+            'update_form': update_form,
+        }
+        return render(request, self.template_name, context)
 
     def post(self, request):
+        if not request.user.is_superuser:
+            redirect('frendj:home')
         pass 
