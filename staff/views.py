@@ -332,7 +332,7 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
 
         # Try to create from CSV file a list of dictionaries to verify SQL data
         data_list = []
-        message = "" # for building error messages throughout the various checks below.
+        message = ""
         try:
             with open('import_data.csv') as csvfile:
                 data_reader = reader(csvfile)
@@ -352,7 +352,7 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
         # If an error occurs give feedback
         except Exception as e:
             message += f"There was an error reading the file at row {row_count}. "
-            message += "Correct this in the CSV before proceeding. "
+            message += "Correct the CSV before proceeding. "
             message += str(row)
             if hasattr(e, 'message'):
                 e += e.message
@@ -369,10 +369,10 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
         row, non_ints, wrong_ids = 1, "", ""
         for item in data_list:
             row += 1
-            if phrase_id := item["phrase_id"]:
+            if phrase_id := item['phrase_id']:
                 if not isinstance(phrase_id, int):
                     if not non_ints:
-                        non_ints += "Phrase IDs at these rows should be an intager number: "
+                        non_ints += "These rows contain phrase IDs that are not intagers: "
                     non_ints += f"{row}, "
                 try:
                     if not phrases.get(id=phrase_id):
@@ -382,6 +382,10 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
                             worng_ids += "correct if the phrase is already in the database: "
                         wrong_ids += f"ID {phrase_id} at row {row}, "
                 except:
+                    if not wrong_ids:
+                        wrong_ids += "Phrase IDs at the following rows don't exist in the database."
+                        wrong_ids += "Delete if the it's a new phrase or "
+                        worng_ids += "correct if the phrase is already in the database: "
                     wrong_ids += f"ID {phrase_id} at row {row}, "
         if non_ints or wrong_ids:
             message += "Errors with data entry for phrase ID column. " 
@@ -995,6 +999,77 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
     def post(self, request):
         if not request.user.is_superuser:
             redirect('frendj:home')
+
+        profile = Profile.objects.get(user=request.user)
+        test_form = CsvForm(request.post)
+
+        if not test_form.is_valid():
+            context = {
+                'profile': profile,
+                'test_form': test_form,
+            }
+            return render(request, self.template_name, context)
+
+        # Try to create from CSV file a list of dictionaries to verify SQL data
+        data_list = []
+        message = ""
+        try:
+            with open('import_distractors.csv') as csvfile:
+                data_reader = reader(csvfile)
+                next(data_reader)
+                row_count = 1
+                for row in data_reader:
+                    row_count += 1
+                    id_cell_value = int(row[0]) if row[0] else ""
+                    dict_obj = {
+                        'id': id_cell_value,
+                        'distractor': row[3],
+                        'language': row[1],
+                        'core_vocab': row[2],
+                    }
+                    data_list.append(dict_obj)
+        # If an error occurs return feedback
+        except Exception as e:
+            message += f"There was an error reading the file at row {row_count}. "
+            message += "Correct the CSV before proceeding. "
+            message += str(row)
+            if hasattr(e, 'message'):
+                e += e.message
+            context = {
+                'profile': profile,
+                'test_form': test_form,
+                'message': message,
+                'details': e
+            }
+            return render(request, self.template_name, context)
+
+        # Check that distractor ID is entered correctly for updates
+        distractors = Distractor.objects.all()
+        row, non_ints, wrong_ids = 1, "", ""
+        for item in data_list: 
+            row += 1
+            if distractor_id := item['id']:
+                if not isinstance(distractor_id, int):
+                    if not non_ints:
+                        non_ints += "These rows contain distractor IDs that are not intagers: "
+                    non_ints += f"{row} : {distractor_id}, "
+                if not distractors.filter(id=distractor_id).exists():
+                    if not wrong_ids:
+                        wrong_ids += (
+                            "Distractor IDs at the following rows don't exist in the database. Delete"
+                            " if it's a new distractor or correct if its already in the database: "
+                        )
+                    wrong_ids += f"ID {distractor_id} at row {row}, "
+        errors = [text.rstrip(", ") for text in (non_ints, wrong_ids) if text]
+        if errors:
+            message += "Errors with data entry for phrase ID column. " + ". ".join(errors)
+            message += "Correct all distractor IDs before running the test again. "
+            context = {
+                'profile': profile,
+                'test_form': test_form,
+                'message': message,
+            }
+            return render(request, self.template_name, context)
         pass
 
 
