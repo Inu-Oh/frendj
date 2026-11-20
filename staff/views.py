@@ -1024,7 +1024,7 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
                 for row_number, row in enumerate(data_reader, start=2):
                     try:
                         data_list.append({
-                            'id': int(row[0]) if row[0] else None,
+                            'id': row[0] if row[0] else None,
                             'distractor': row[3],
                             'language': row[1],
                             'core_vocab': row[2],
@@ -1056,7 +1056,7 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
         # Check that distractor ID is entered correctly for updates - Set up base data to verify
         distractors = Distractor.objects.all()
         distractor_keys = {
-            (d.distractor.strip().lower(), d.language.strip().lower()) for d in distractors
+            (d.word.strip().lower(), d.language.strip().lower()) for d in distractors
         }
         # Track lists of errors by type
         non_int_rows = []
@@ -1074,11 +1074,12 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
         row = 1
         for item in data_list: 
             row += 1
-            if distractor_id := item['id']:
+            if distractor_id := (item['id']):
                 if not isinstance(distractor_id, int):
                     non_int_rows.append(f"{row} : {distractor_id}")
-                if not distractors.filter(id=distractor_id).exists():
-                    wrong_id_rows.append(f"ID {distractor_id} at row {row}, ")
+                else:
+                    if not distractors.filter(id=distractor_id).exists():
+                        wrong_id_rows.append(f"ID {distractor_id} at row {row}, ")
             # Check that distractors are present and only contain alphabetic characters
             distractor = item['distractor']
             if not distractor:
