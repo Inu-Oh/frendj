@@ -1,6 +1,6 @@
 from csv import reader, DictWriter, Error as CSV_Error
 from json import loads
-from re import match
+from re import compile, match
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
@@ -13,7 +13,11 @@ from frendj.models import Module, Phrase, Translation, Distractor, UserPhraseStr
 from accounts.models import Profile
 
 from .forms import ModuleForm, CreatePhraseForm, CreateTranslationForm, UpdatePhraseForm, UpdateTranslationForm, CsvForm
-    
+
+PHRASE_IMPORT_CSV = 'import_data.csv'
+DISTRACTOR_CSV_PATH = 'import_distractors.csv'
+ALLOWED_DISTRACTOR = compile(r"(?=.*[^\W\d_])(?:[^\W\d_]|['-])+")
+
 
 class StaffMenuView(LoginRequiredMixin, ListView):
     """Admin staff menu to navigate adding and editing content."""
@@ -334,7 +338,7 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
         data_list = []
         message = ""
         try:
-            with open('import_data.csv') as csvfile:
+            with open(PHRASE_IMPORT_CSV) as csvfile:
                 data_reader = reader(csvfile)
                 next(data_reader)
                 row_count = 1
@@ -556,7 +560,7 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
         # Try to create from CSV file a list of dictionaries to verify SQL data
         data_list = []
         try:
-            with open('import_data.csv') as csvfile:
+            with open(PHRASE_IMPORT_CSV) as csvfile:
                 data_reader = reader(csvfile)
                 next(data_reader)
                 row_count = 1
@@ -712,7 +716,7 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
         # Read the CSV file and create list of dicts to track data
         data_list, val_error = [], ""
         try:
-            with open('import_data.csv') as csvfile:
+            with open(PHRASE_IMPORT_CSV) as csvfile:
                 data_reader = reader(csvfile)
                 next(data_reader)
                 row_count = 1
@@ -1012,10 +1016,9 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
             return render(request, self.template_name, context)
 
         # Try to create from CSV file a list of dictionaries to verify SQL data
-        csv_path = 'import_distractors.csv'
-        data_list, message = [], ""
+        data_list, csv_errors = [], []
         try:
-            with open(csv_path, newline="", encoding="utf-8-sig") as csvfile:
+            with open(DISTRACTOR_CSV_PATH, newline="", encoding="utf-8-sig") as csvfile:
                 data_reader = reader(csvfile)
                 next(data_reader, None)
                 for row_number, row in enumerate(data_reader, start=2):
@@ -1026,28 +1029,49 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
                             'language': row[1],
                             'core_vocab': row[2],
                         })
-        # If an error occurs return feedback
+        # If an error occurs format an appropriate error message
                     except (ValueError, IndexError) as e:
-                        message += (
+                        csv_errors.append(
                             f"There was an error reading row {row_number} of the CSV. "
                             f"{e}. Correct the CSV before proceeding."
                         )
         except FileNotFoundError:
-            message += f"The file {csv_path} was not found."
+            csv_errors.append(f"The file {DISTRACTOR_CSV_PATH} was not found.")
         except (OSError, CSV_Error) as e:
-            message += f"There was an error reading {csv_path}: {e}. Correct the CSV before proceeding."
+            csv_errors.append(
+                f"There was an error reading {DISTRACTOR_CSV_PATH}: {e}. Correct the CSV before proceeding."
+            )
 
-        if message:
+        # With critical error reading CSV redirect to show error message
+        if csv_errors:
             context = {
                 'profile': profile,
                 'test_form': test_form,
-                'message': message,
+                'error_sections': [
+                    {'title': 'CSV file', 'messages': csv_errors},
+                ],
             }
             return render(request, self.template_name, context)
 
-        # Check that distractor ID is entered correctly for updates
+        # Check that distractor ID is entered correctly for updates - Set up base data to verify
         distractors = Distractor.objects.all()
-        row, non_int_rows, wrong_id_rows, id_errors = 1, [], [], []
+        distractor_keys = {
+            (d.distractor.strip().lower(), d.language.strip().lower()) for d in distractors
+        }
+        # Track lists of errors by type
+        non_int_rows = []
+        wrong_id_rows = []
+        id_errors = []
+        missing_distractor_rows = []
+        non_alpha_rows = []
+        distractor_errors = []
+        duplicates = []
+        lang_errors = []
+        core_vocab_errors = []
+        error_sections = []
+
+        # Loop through CSV data to check each error type starting with ID column checks
+        row = 1
         for item in data_list: 
             row += 1
             if distractor_id := item['id']:
@@ -1055,14 +1079,31 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
                     non_int_rows.append(f"{row} : {distractor_id}")
                 if not distractors.filter(id=distractor_id).exists():
                     wrong_id_rows.append(f"ID {distractor_id} at row {row}, ")
+            # Check that distractors are present and only contain alphabetic characters
+            distractor = item['distractor']
+            if not distractor:
+                missing_distractor_rows.append(row)
+            elif not ALLOWED_DISTRACTOR.fullmatch(distractor):
+                non_alpha_rows.append(f'"{distractor}" at row {row}')
+            # Chack that new distractor is unique in its language list
+            if not item['id']:
+                key = (item['distractor'].strip().lower(), item['language'].strip().lower())
+                if key in distractor_keys:
+                    duplicates.append({'distractor': item['distractor'], 'row': row})
+                distractor_keys.add(key)
+            # Verify that language is either English or French
+            if item['language'] not in {"English", "French"}:
+                lang_errors.append(str(row))
+            # Check that value for core vocabulary identification is either True or False
+            if item['core_vocab'].strip().upper() not in {"TRUE", "FALSE"}:
+                core_vocab_errors.append(str(row))
 
-        # Format messages if IDs are not entered correctly
+        # Format message if IDs are not entered correctly
         if non_int_rows:
             id_errors.append(
                 "These rows contain distractor IDs that are not integers: "
                 + ", ".join(non_int_rows)
             )
-
         if wrong_id_rows:
             id_errors.append(
                 "Distractor IDs at the following rows don't exist in the database. Delete"
@@ -1070,90 +1111,78 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
                 + ", ".join(wrong_id_rows)
             )
         if id_errors:
-            message += "Errors with data entry for phrase ID column. "
-            message += " ".join(f"{error}." for error in id_errors)
-            message += "Correct all distractor IDs before running the test again. "
+            id_errors.append("Correct all distractor IDs before running the test again.")
+            error_sections.append({
+                'title': 'Distractor ID column',
+                'messages': id_errors,
+            })
 
-        # Check that distractors are present and only contain alphabetic characters
-        row, missing_distractor_rows, non_alpha_rows, distractor_errors = 1, [], [], []
-        for item in data_list:
-            row += 1
-            distractor = item['distractor']
-            if not distractor:
-                missing_distractor_rows.append(row)
-            elif not distractor.isalpha():
-                non_alpha_rows.append(f'"{distractor}" at row {row}')
-
-        # Format messages if distractors are not enetered correctly
+        # Format message if distractors are not enetered correctly
         if missing_distractor_rows:
             distractor_errors.append(
                 "The following rows are missing distractors: "
                 + ", ".join(str(missing_distractor_rows))
             )
-
         if non_alpha_rows:
             distractor_errors.append(
                 "The following rows include non-alpha characters: "
                 + ", ".join(non_alpha_rows)
             )
-
         if distractor_errors:
-            message += "Errors with data entry for distractor column. "
-            message += " ".join(f"{error}." for error in distractor_errors)
-            message += "Resolve missing distractors and replace non alphabetic characters. "
+            distractor_errors.append(
+                "Resolve missing distractors and replace non alphabetic characters."
+            )
+            error_sections.append({
+                'title': 'Distractor column',
+                'messages': distractor_errors,
+            })
 
-        # Chack that new distractor is unique in its language list
-        distractor_keys = {
-            (d.distractor.strip().lower(), d.language.strip().lower()) for d in distractors
-        }
-        row, duplicates = 1, []
-        for item in data_list:
-            row += 1
-            if not item['id']:
-                key = (item['distractor'].strip().lower(), item['language'].strip().lower())
-                if key in distractor_keys:
-                    duplicates.append({'distractor': item['distractor'], 'row': row})
-                distractor_keys.add(key)
-
+        # Format message if distractors are not unique
         if duplicates:
-            message += "The CSV file includes phrases that are duplicates: "
-            message += ", ".join(f'"{d["distractor"]}" at row {d["row"]}' for d in duplicates)
-            message += ". Make sure there are no duplicates before testing again. "
+            duplicate_messages = [
+                "The CSV file includes distractors that are duplicates: "
+                + ", ".join(f'"{d["distractor"]}" at row {d["row"]}' for d in duplicates),
+                "Make sure there are no duplicates before testing again.",
+            ]
+            error_sections.append({
+                'title': 'Duplicate distractors',
+                'messages': duplicate_messages,
+            })
 
-        # Verify that language is either English or French
-        row, lang_errors = 1, []
-        for item in data_list:
-            row += 1
-            if item['language'] not in {"English", "French"}:
-                lang_errors.append(str(row))
-
+        # Format message if language of distractor is other than French or English
         if lang_errors:
-            message += (
-                "Invalid language was entered in some rows. "
-                "Use either French or English, capatialized, to indicate the distractor language. "
-                "Correct this in the CSV before proceeding. Affected rows include: "
-                ", ".join(lang_errors) + ". "
-            )
+            error_sections.append({
+                'title': 'Language column',
+                'messages': [
+                    (
+                        "Invalid language was entered in some rows. "
+                        "Use either French or English, capatialized, to indicate the distractor language. "
+                        "Correct this in the CSV before proceeding. Affected rows include: "
+                        + ", ".join(lang_errors) + "."
+                    ),
+                ],
+            })
 
-        # Check that value for core vocabulary identification is either True or False
-        row, core_vocab_errors = 1, []
-        for item in data_list:
-            row += 1
-            if item['core_vocab'].strip().upper() not in {"TRUE", "FALSE"}:
-                core_vocab_errors.append(str(row))
-
+        # Format message if boolean value is not entered correctly to track core vocabulary distractors
         if core_vocab_errors:
-            message += (
-                "Invalid values were intered in column that identfies core vacabulary. "
-                "Review the following rows to make sure they use TRUE or FALSE to identify "
-                "the distractor as core vocabulary word: " + ", ".join(core_vocab_errors) + ". "
-            )
+            error_sections.append({
+                'title': 'Core vocabulary column',
+                'messages': [
+                    (
+                        "Invalid values were intered in column that identfies core vacabulary. "
+                        "Review the following rows to make sure they use TRUE or FALSE to identify "
+                        "the distractor as core vocabulary word: "
+                        + ", ".join(core_vocab_errors) + "."
+                    ),
+                ],
+            })
 
-        if message:
+        # If there are any error message redirect back to same page to give feedback
+        if error_sections:
             context = {
                 'profile': profile,
                 'test_form': test_form,
-                'message': message,
+                'error_sections': error_sections,
             }
             return render(request, self.template_name, context)
 

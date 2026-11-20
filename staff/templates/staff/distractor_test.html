@@ -13,7 +13,19 @@
 
 {% block content %}
 <div class="app-page">
-    {% if message %}
+    {% if error_sections %}
+        <div class="app-panel app-panel-content p-3 my-3">
+            <h2 class="text-danger">There were errors in the CSV</h2>
+            {% for section in error_sections %}
+                <section class="mb-4" aria-label="{{ section.title }}">
+                    <h3 class="h5 text-danger">{{ section.title }}</h3>
+                    {% for error_message in section.messages %}
+                        <p class="mb-1">{{ error_message }}</p>
+                    {% endfor %}
+                </section>
+            {% endfor %}
+        </div>
+    {% elif message %}
         <div class="app-panel app-panel-content p-3 my-3">
             <h2 class="text-danger">There was an error</h2>
             <p class="fs-4">{{ message }}</p>
