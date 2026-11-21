@@ -1284,7 +1284,7 @@ class DistractorUpdateView(PermissionRequiredMixin, ListView):
 
         # If any error was found, redirect back to DistractorTestView
         if error:
-            return redirect('staff:distractor_test')
+            return render(request, 'staff/distractor_error_redirect.html')
 
         # Compare CSV data with database content and get stats
         stored_distractor_count = distractors.count()

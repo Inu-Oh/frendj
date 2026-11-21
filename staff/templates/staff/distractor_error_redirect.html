@@ -1,0 +1,21 @@
+{% extends "base_menu.html" %}
+
+{% block title %} - CSV validation{% endblock title %}
+
+{% block head %}
+<meta http-equiv="refresh" content="5;url={% url 'staff:distractor_test' %}">
+{% endblock head %}
+
+{% block content %}
+<div class="csv-loading-overlay" role="alertdialog" aria-modal="true"
+    aria-labelledby="csv-validation-error-title">
+    <div class="alert alert-danger text-center shadow p-4 m-3" role="alert">
+        <h1 class="h4" id="csv-validation-error-title">CSV validation errors</h1>
+        <p>
+            One or more errors were encountered while checking the CSV.
+            You are being redirected back to the Distractor Test page.
+        </p>
+        <p class="mb-0">Redirecting in 5 seconds...</p>
+    </div>
+</div>
+{% endblock content %}
