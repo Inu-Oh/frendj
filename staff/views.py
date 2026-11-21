@@ -647,9 +647,7 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
                 print("Translation list is empty. Error: ", error)
                 break
         if error:
-            failure_url = reverse_lazy('staff:csv_db_test')
-            return redirect(failure_url)
-
+            return redirect('staff:csv_db_test')
 
         # Compare CSV data with database content and get stats
         current_phrase_count = phrases.count()
@@ -660,26 +658,28 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
             total += 1
 
             # Count new items as those without a phrase ID
-            if not item["phrase_id"]:
+            if not item['phrase_id']:
                 new.append((item["phrase"], item['phrase_lang']))
             else:
-                csv_phrase_ids.append(int(item["phrase_id"]))
-                phrase = phrases.get(id=item["phrase_id"])
-                if phrase.language != item["phrase_lang"]:
+                csv_phrase_ids.append(int(item['phrase_id']))
+                phrase = phrases.get(id=item['phrase_id'])
+                if phrase.language != item['phrase_lang']:
                     changed.append(f"{phrase} (change language): {phrase.language} -> {item['phrase_lang']}")
                 elif phrase.phrase != item["phrase"]:
                     changed.append(f"{phrase} (change phrase) -> {item['phrase']}")
-                elif phrase.module.name != item["module_name"]:
+                elif phrase.module.name != item['module_name']:
                     changed.append(f"{phrase} (change module): {phrase.module.name} -> {item['module_name']}")
                 else:
-                    old_translations, new_translations = set(), set(item["translations"])
+                    old_translations, new_translations = set(), set(item['translations'])
                     phrase_translations = translations.filter(phrase=phrase)
                     for translation in phrase_translations:
                         old_translations.add(translation.translation)
                     if old_translations != new_translations:
                         changed.append(f"{phrase.phrase} (change translations): {', '.join(old_translations)} -> {', '.join(new_translations)}")
 
-        # Count the number of unchanged phrases in the databased based on the changes 
+        # TODO - change this to count number of phrases to be deleted from the database
+        # - unchanged is because deletion was not yet set up.
+        # Count the number of unchanged phrases in the database based on the changes 
         unchanged = total - len(new) - len(changed)
         for phrase in phrases:
             if phrase.id not in csv_phrase_ids:
@@ -1024,7 +1024,7 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
                 for row_number, row in enumerate(data_reader, start=2):
                     try:
                         data_list.append({
-                            'id': row[0] if row[0] else None,
+                            'id': row[0] if row[0].strip() else None,
                             'distractor': row[3],
                             'language': row[1],
                             'core_vocab': row[2],
@@ -1074,11 +1074,14 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
         row = 1
         for item in data_list: 
             row += 1
-            if distractor_id := (item['id']):
-                if not isinstance(distractor_id, int):
+            raw_id = item['id']
+            if raw_id is not None:
+                try:
+                    distractor_id = int(raw_id)
+                except ValueError:
                     non_int_rows.append(f"{row} : {distractor_id}")
                 else:
-                    if not distractors.filter(id=distractor_id).exists():
+                    if not distractors.filter(id=int(distractor_id)).exists():
                         wrong_id_rows.append(f"ID {distractor_id} at row {row}, ")
             # Check that distractors are present and only contain alphabetic characters
             distractor = item['distractor']
@@ -1212,10 +1215,120 @@ class DistractorUpdateView(PermissionRequiredMixin, ListView):
         update_form = CsvForm()
 
         # Try to create from CSV file a list of dictionaries to verify SQL data
+        data_list, error = [], False
+        try:
+            with open(DISTRACTOR_CSV_PATH, newline="", encoding="utf-8-sig") as csvfile:
+                data_reader = reader(csvfile)
+                next(data_reader, None)
+                for _, row in enumerate(data_reader, start=2):
+                    try:
+                        data_list.append({
+                            'id': row[0] if row[0].strip() else None,
+                            'word': row[3],
+                            'language': row[1],
+                            'core_vocab': row[2],
+                        })
+        # If an error occurs format an appropriate error message
+                    except (ValueError, IndexError) as e:
+                        error = True
+                        break
+        except FileNotFoundError:
+            error = True
+        except (OSError, CSV_Error):
+            error = True
+
+            # Check that distractor ID is entered correctly for updates - Set up base data to verify
+        if not error:
+            distractors = Distractor.objects.all()
+            distractor_keys = {
+                (d.word.strip().lower(), d.language.strip().lower()) for d in distractors
+            }
+
+            # Loop through CSV data to check each error type starting with ID column checks
+            row = 1
+            for item in data_list: 
+                row += 1
+                raw_id = item['id']
+                if raw_id is not None:
+                    try:
+                        distractor_id = int(raw_id)
+                    except ValueError:
+                        error = True
+                        break
+                    else:
+                        if not distractors.filter(id=int(distractor_id)).exists():
+                            error = True
+                            break
+                # Check that distractors are present and only contain alphabetic characters
+                distractor = item['word']
+                if not distractor:
+                    error = True
+                    break
+                elif not ALLOWED_DISTRACTOR.fullmatch(distractor):
+                    error = True
+                    break
+                # Chack that new distractor is unique in its language list
+                if not item['id']:
+                    key = (item['word'].strip().lower(), item['language'].strip().lower())
+                    if key in distractor_keys:
+                        error = True
+                        break
+                # Verify that language is either English or French
+                if item['language'] not in {"English", "French"}:
+                    error = True
+                    break
+                # Check that value for core vocabulary identification is either True or False
+                if item['core_vocab'].strip().upper() not in {"TRUE", "FALSE"}:
+                    error = True
+                    break
+
+        # If any error was found, redirect back to DistractorTestView
+        if error:
+            return redirect('staff:distractor_test')
+
+        # Compare CSV data with database content and get stats
+        stored_distractor_count = distractors.count()
+        total = 0
+        changed = []
+        new = []
+        csv_ids = []
+
+        # Count all the distractors in the data list
+        for item in data_list:
+            total += 1
+
+            # Count new distractors as those without an ID 
+            if not item['id']:
+                new.append((item['word'], item['language']))
+            # Track all changes made to distractors in the CSV
+            else:
+                csv_ids.append(int(item['id']))
+                distractor = distractors.get(id=item['id'])
+                if distractor.language != item['language']:
+                    changed.append(f"{distractor} (change language): {distractor.language} -> {item['language']}")
+                if distractor.word != item['word']:
+                    changed.append(f"{distractor} (change distractor): {distractor.word} -> {item['word']}")
+                if distractor.core_vocab != item['core_vocab']:
+                    changed.append(f"{distractor} (toggle core vocab); {distractor.core_vocab} -> {item['core_vocab']}")
+
+        # Count and track the disractors that will be deleted from the database
+        to_be_deleted = total - len(new) - len(changed)
+        distractors_to_be_deleted = []
+        for distractor in distractors:
+            if distractor.id not in csv_ids:
+                to_be_deleted += 1
+                distractors_to_be_deleted.append(distractor)
 
         context = {
             'profile': profile,
             'update_form': update_form,
+            'stored_distractor_count': stored_distractor_count,
+            'new': len(new),
+            'added_distractors': new,
+            'edited': len(changed),
+            'edited_distractors': changed,
+            'to_be_deleted': to_be_deleted,
+            'distractors_to_be_deleted': distractors_to_be_deleted,
         }
         return render(request, self.template_name, context)
 
