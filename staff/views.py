@@ -14,7 +14,7 @@ from accounts.models import Profile
 
 from .forms import ModuleForm, CreatePhraseForm, CreateTranslationForm, UpdatePhraseForm, UpdateTranslationForm, CsvForm
 
-PHRASE_IMPORT_CSV = 'import_data.csv'
+PHRASE_CSV_PATH = 'import_data.csv'
 DISTRACTOR_CSV_PATH = 'import_distractors.csv'
 ALLOWED_DISTRACTOR = compile(r"(?=.*[^\W\d_])(?:[^\W\d_]|['-])+")
 
@@ -338,7 +338,7 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
         data_list = []
         message = ""
         try:
-            with open(PHRASE_IMPORT_CSV) as csvfile:
+            with open(PHRASE_CSV_PATH) as csvfile:
                 data_reader = reader(csvfile)
                 next(data_reader)
                 row_count = 1
@@ -480,7 +480,7 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
             if item['phrase_lang'] not in ["French", "English"]:
                 lang_errors.append(row)
         if lang_errors:
-            message = """Invalid langauge was entered in some rows. 
+            message = """Invalid language was entered in some rows. 
                 Use either French or English, capatialized, to indicate the phrase language.
                 Correct this in the CSV before proceeding. Affected rows include: """
             for err in lang_errors:
@@ -560,7 +560,7 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
         # Try to create from CSV file a list of dictionaries to verify SQL data
         data_list = []
         try:
-            with open(PHRASE_IMPORT_CSV) as csvfile:
+            with open(PHRASE_CSV_PATH) as csvfile:
                 data_reader = reader(csvfile)
                 next(data_reader)
                 row_count = 1
@@ -678,7 +678,7 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
                         changed.append(f"{phrase.phrase} (change translations): {', '.join(old_translations)} -> {', '.join(new_translations)}")
 
         # TODO - change this to count number of phrases to be deleted from the database
-        # - unchanged is because deletion was not yet set up.
+        # - unchanged is because deletion was not yet set up - TODO - delete in post
         # Count the number of unchanged phrases in the database based on the changes 
         unchanged = total - len(new) - len(changed)
         for phrase in phrases:
@@ -713,10 +713,10 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
             }
             return render(request, self.template_name, context)
         
-        # Read the CSV file and create list of dicts to track data
+        # Read the CSV file and create list of dicts to track prhase data
         data_list, val_error = [], ""
         try:
-            with open(PHRASE_IMPORT_CSV) as csvfile:
+            with open(PHRASE_CSV_PATH) as csvfile:
                 data_reader = reader(csvfile)
                 next(data_reader)
                 row_count = 1
@@ -990,7 +990,7 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
 
     def get(self, request):
         if not request.user.is_superuser:
-            redirect('frendj:home')
+            return redirect('frendj:home')
 
         profile = Profile.objects.get(user=request.user)
         test_form = CsvForm()
@@ -1003,7 +1003,7 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
 
     def post(self, request):
         if not request.user.is_superuser:
-            redirect('frendj:home')
+            return redirect('frendj:home')
 
         profile = Profile.objects.get(user=request.user)
         test_form = CsvForm(request.POST)
@@ -1015,8 +1015,9 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
             }
             return render(request, self.template_name, context)
 
-        # Try to create from CSV file a list of dictionaries to verify SQL data
-        data_list, csv_errors = [], []
+        # Try to create from CSV file a list of dictionaries to verify data
+        data_list = []
+        csv_errors = []
         try:
             with open(DISTRACTOR_CSV_PATH, newline="", encoding="utf-8-sig") as csvfile:
                 data_reader = reader(csvfile)
@@ -1206,18 +1207,12 @@ class DistractorUpdateView(PermissionRequiredMixin, ListView):
     ]
     template_name = 'staff/distractor_update.html'
 
-    def get(self, request):
-        if not request.user.is_superuser:
-            redirect('frendj:home')
-
-        profile = Profile.objects.get(user=request.user)
-        distractors = Distractor.objects.all()
-        update_form = CsvForm()
-
-        # Try to create from CSV file a list of dictionaries to verify SQL data
-        data_list, error = [], False
+    # Try to create from CSV file a list of dictionaries to verify SQL data
+    def try_to_read_csv(sefl, file_path): 
+        data_list = []
+        error = False
         try:
-            with open(DISTRACTOR_CSV_PATH, newline="", encoding="utf-8-sig") as csvfile:
+            with open(file_path, newline="", encoding="utf-8-sig") as csvfile:
                 data_reader = reader(csvfile)
                 next(data_reader, None)
                 for _, row in enumerate(data_reader, start=2):
@@ -1237,50 +1232,65 @@ class DistractorUpdateView(PermissionRequiredMixin, ListView):
         except (OSError, CSV_Error):
             error = True
 
-            # Check that distractor ID is entered correctly for updates - Set up base data to verify
+        return data_list, error
+
+    def check_CSV_for_errors(self, data_list, distractors, error):
+        # Loop through CSV data to check each error type starting with ID column checks
+        distractor_keys = {
+            (d.word.strip().lower(), d.language.strip().lower()) for d in distractors
+        }
+        row = 1
+        for item in data_list: 
+            row += 1
+            raw_id = item['id']
+            if raw_id is not None:
+                try:
+                    distractor_id = int(raw_id)
+                except ValueError:
+                    error = True
+                    break
+                else:
+                    if not distractors.filter(id=int(distractor_id)).exists():
+                        error = True
+                        break
+            # Check that distractors are present and only contain alphabetic characters
+            distractor = item['word']
+            if not distractor:
+                error = True
+                break
+            elif not ALLOWED_DISTRACTOR.fullmatch(distractor):
+                error = True
+                break
+            # Chack that new distractor is unique in its language list
+            if not item['id']:
+                key = (item['word'].strip().lower(), item['language'].strip().lower())
+                if key in distractor_keys:
+                    error = True
+                    break
+            # Verify that language is either English or French
+            if item['language'] not in {"English", "French"}:
+                error = True
+                break
+            # Check that value for core vocabulary identification is either True or False
+            if item['core_vocab'].strip().upper() not in {"TRUE", "FALSE"}:
+                error = True
+                break
+
+        return error
+
+    def get(self, request):
+        if not request.user.is_superuser:
+            return redirect('frendj:home')
+
+        profile = Profile.objects.get(user=request.user)
+        distractors = Distractor.objects.all()
+        update_form = CsvForm()
+
+        # Check that distractor ID is entered correctly for updates - Set up base data to verify
+        data_list, error = self.try_to_read_csv(DISTRACTOR_CSV_PATH)
         if not error:
             distractors = Distractor.objects.all()
-            distractor_keys = {
-                (d.word.strip().lower(), d.language.strip().lower()) for d in distractors
-            }
-
-            # Loop through CSV data to check each error type starting with ID column checks
-            row = 1
-            for item in data_list: 
-                row += 1
-                raw_id = item['id']
-                if raw_id is not None:
-                    try:
-                        distractor_id = int(raw_id)
-                    except ValueError:
-                        error = True
-                        break
-                    else:
-                        if not distractors.filter(id=int(distractor_id)).exists():
-                            error = True
-                            break
-                # Check that distractors are present and only contain alphabetic characters
-                distractor = item['word']
-                if not distractor:
-                    error = True
-                    break
-                elif not ALLOWED_DISTRACTOR.fullmatch(distractor):
-                    error = True
-                    break
-                # Chack that new distractor is unique in its language list
-                if not item['id']:
-                    key = (item['word'].strip().lower(), item['language'].strip().lower())
-                    if key in distractor_keys:
-                        error = True
-                        break
-                # Verify that language is either English or French
-                if item['language'] not in {"English", "French"}:
-                    error = True
-                    break
-                # Check that value for core vocabulary identification is either True or False
-                if item['core_vocab'].strip().upper() not in {"TRUE", "FALSE"}:
-                    error = True
-                    break
+            error = self.check_CSV_for_errors(data_list, distractors, error)
 
         # If any error was found, redirect back to DistractorTestView
         if error:
@@ -1334,5 +1344,106 @@ class DistractorUpdateView(PermissionRequiredMixin, ListView):
 
     def post(self, request):
         if not request.user.is_superuser:
-            redirect('frendj:home')
-        pass 
+            return redirect('frendj:home')
+
+        profile = Profile.objects.get(user=request.user)
+        distractors = Distractor.objects.all()
+        update_form = CsvForm(request.POST)
+        if not update_form.is_valid():
+            message = "Your request couldn't complete. Please try again. If error persists, contact the support team."
+            context = {
+                'profile': profile,
+                'message': message,
+            }
+            return render(request, self.template_name, context)
+
+        # Check that distractor ID is entered correctly for updates - Set up base data to verify
+        data_list, error = self.try_to_read_csv(DISTRACTOR_CSV_PATH)
+        if not error:
+            distractors = Distractor.objects.all()
+            error = self.check_CSV_for_errors(data_list, distractors, error)
+
+        # If any error was found, redirect back to DistractorTestView
+        if error:
+            return render(request, 'staff/distractor_error_redirect.html')
+
+        # Populate / update the database. First set up variables to track changes.
+        added_descriptors = 0
+        edited_languages = 0
+        edited_core_vocabs = 0
+        edited_words = 0
+
+        # Compare new CSV data to database stored data and update the database
+        row = 1
+        for dict_obj in data_list:
+            row += 1
+            # Update the distractor if it is already in database (has an ID) and changes were made
+            if id_ := dict_obj['id']:
+                distractor = distractors.get(id=id_)
+                changed = False
+                if distractor.language != dict_obj['language']:
+                    distractor.language = dict_obj['language']
+                    edited_languages += 1
+                    changed = True
+                if distractor.core_vocab != dict_obj['core_vocab']:
+                    if dict_obj['core_vocab'] == "TRUE":
+                        distractor.core_vocab = True
+                    else:
+                        distractor.core_vocab = False
+                    edited_core_vocabs += 1
+                    changed = True
+                if distractor.word != dict_obj['word']:
+                    distractor.word = dict_obj['word']
+                    edited_words += 1
+                    changed = True
+                if changed:
+                    distractor.save()
+
+            else:
+                distractor = Distractor.objects.create(
+                    language = dict_obj['language'],
+                    core_vocab = dict_obj['core_vocab'],
+                    word = dict_obj['word']
+                )
+                added_descriptors += 1
+
+        # Delete distractors from database if their IDs don't appear in the CSV
+        stored_distractor_ids = list(distractors.values_list("pk", flat=True))
+        csv_distractor_ids = {item['id'] for item in data_list}
+        missing_ids = [id_ for id_ in stored_distractor_ids if id_ not in csv_distractor_ids]
+        for id_ in missing_ids:
+            Distractor.objects.get(pk=id_).delete()
+
+        # Log all change counts in terminal - TODO - Put this in a log not print
+        print(f"Distractors added: {added_descriptors}\nDescriptor languages edited: {edited_languages}")
+        print(f"Distractor core vocab identification edited: {edited_core_vocabs}")
+        print(f"Descriptor words edited: {edited_words}")
+
+        # Write a new copy of distractors in the database to CSV
+        export_data = []
+        updated_distractors = Distractor.objects.all()
+        for distractor in updated_distractors:
+            export_data.append({
+                'id': distractor.id,
+                'language': distractor.language,
+                'core_vocab': distractor.core_vocab,
+                'word': distractor.word,
+            })
+
+        current_time = timezone.now()
+        now = current_time.strftime("%Y-%m-%d_%H-%M-%S")
+        with open(f"distractor_export_{now}.csv", 'w', newline="", encoding="utf-8-sig") as export:
+            writer = DictWriter(
+                export,
+                fieldnames=["distractor_id", "language", "core_vocab", "word"]
+            )
+            writer.writeheader()
+            for distractor in export_data:
+                writer.writerow({
+                    'distractor_id': distractor['id'],
+                    'language': distractor['language'],
+                    'core_vocab': distractor['core_vocab'],
+                    'word': distractor['word']
+                })
+
+        return redirect(reverse_lazy('frendj:glossary'))
