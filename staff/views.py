@@ -1319,6 +1319,7 @@ class DistractorUpdateView(PermissionRequiredMixin, ListView):
         stored_distractor_count = distractors.count()
         total = 0
         changed = []
+        distractors_edited = 0
         new = []
         csv_ids = []
 
@@ -1332,14 +1333,19 @@ class DistractorUpdateView(PermissionRequiredMixin, ListView):
             # Track all changes made to distractors in the CSV
             else:
                 csv_ids.append(int(item['id']))
+                distractor_was_edited = False
                 distractor = distractors.get(id=item['id'])
                 if distractor.language != item['language']:
                     changed.append(f"{distractor} (change language): {distractor.language} -> {item['language']}")
+                    distractor_was_edited = True
                 if distractor.word != item['word']:
                     changed.append(f"{distractor} (change distractor): {distractor.word} -> {item['word']}")
+                    distractor_was_edited = True
                 if distractor.core_vocab != item['core_vocab']:
                     changed.append(f"{distractor} (toggle core vocab); {distractor.core_vocab} -> {item['core_vocab']}")
-
+                    distractor_was_edited = True
+                if distractor_was_edited:
+                    distractors_edited += 1
         # Count and track the disractors that will be deleted from the database
         distractors_to_be_deleted = []
         for distractor in distractors:
@@ -1353,7 +1359,7 @@ class DistractorUpdateView(PermissionRequiredMixin, ListView):
             'stored_distractor_count': stored_distractor_count,
             'new': len(new),
             'added_distractors': new,
-            'edited': len(changed),
+            'total_edits': len(changed),
             'edited_distractors': changed,
             'to_be_deleted': to_be_deleted_count,
             'distractors_to_be_deleted': distractors_to_be_deleted,

@@ -36,10 +36,10 @@
                             {% endfor %}
                         </div>
                     {% endif %}
-                    {% if changed > 0 %}
+                    {% if total_edits > 0 %}
                         <div class="w-100 py-3">
                             <span class="text-danger fw-bolder">
-                                The following {{ edited }} distractors will be edited in the database:
+                                The following {{ edited_distractors|length }} distractors will be edited in the database:
                             </span>
                             {% for distractor in edited_distractors %}
                                 <p class="my-2">{{ forloop.counter }}. {{ distractor }}</p>
@@ -63,8 +63,10 @@
                     <p class="fs-5">New distractors: {{ new }}<br>
                         Distractors currently in the database {{ stored_distractor_count }}<br>
                         Distractors to be deleted: {{ to_be_deleted }}<br>
-                        Distractors that will be changed: {{ edited }}</p>
-                    {% if changed > 0 or new > 0 %}
+                        Distractor that will be edited: {{ edited_distractors|length }}<br>
+                        Total changes that will be made: {{ total_edits }}
+                    </p>
+                    {% if total_edits > 0 or new > 0 or to_be_deleted > 0 %}
                         {% load crispy_forms_tags %}
                         <form action="" method="post" enctype="multipart/form-data"
                             class="csv-processing-form">
