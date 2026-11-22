@@ -10,6 +10,31 @@
 
 
 <main class="app-panel app-panel-content container-fluid p-2 xb-2">
+
+    {% if messages %}
+    <div class="modal fade" id="profile-modal" tabindex="-1"
+        aria-labelledby="profile-label" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-body p-4 m-4">
+                    <div class="modal-section mb-4 p-4 rounded-3 row">
+                        <div class="p-3">
+                            {% for message in messages %}
+                                <p>{{ message }}</p>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer border-0 p-3">
+                    <button type="button" class="btn btn-outline-dark modal-btn"
+                        data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <form action="" method="get" class="container input-group glossary-search px-4 py-2">
         <input type="text" placeholder="Search phrases and translations" name="search"
         class="form-control"

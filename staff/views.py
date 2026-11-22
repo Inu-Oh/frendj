@@ -1,9 +1,15 @@
+import os
 from csv import reader, DictWriter, Error as CSV_Error
 from json import loads
+from pathlib import Path
 from re import compile, match
+from tempfile import NamedTemporaryFile
 
+from django.conf import settings
+from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.db import IntegrityError, transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.urls import reverse_lazy
@@ -1065,6 +1071,7 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
         id_errors = []
         missing_distractor_rows = []
         non_alpha_rows = []
+        too_long_rows = []
         distractor_errors = []
         duplicates = []
         lang_errors = []
@@ -1084,12 +1091,14 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
                 else:
                     if not distractors.filter(id=int(distractor_id)).exists():
                         wrong_id_rows.append(f"ID {distractor_id} at row {row}, ")
-            # Check that distractors are present and only contain alphabetic characters
+            # Check that distractors are present and only contain 24 or less alphabetic characters
             distractor = item['distractor']
             if not distractor:
                 missing_distractor_rows.append(row)
             elif not ALLOWED_DISTRACTOR.fullmatch(distractor):
                 non_alpha_rows.append(f'"{distractor}" at row {row}')
+            if len(distractor) > 24:
+                too_long_rows.append(f'"{distractor}" at row {row}')
             # Chack that new distractor is unique in its language list
             if not item['id']:
                 key = (item['distractor'].strip().lower(), item['language'].strip().lower())
@@ -1133,9 +1142,14 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
                 "The following rows include non-alpha characters: "
                 + ", ".join(non_alpha_rows)
             )
+        if too_long_rows:
+            distractor_errors.append(
+                "The distractrors in the following rows are longer than the 24 character limit: "
+                + ", ".join(too_long_rows)
+            )
         if distractor_errors:
             distractor_errors.append(
-                "Resolve missing distractors and replace non alphabetic characters."
+                "Resolve missing distractors, replace non-alpha chars and remove words longer than 24 chars."
             )
             error_sections.append({
                 'title': 'Distractor column',
@@ -1208,7 +1222,7 @@ class DistractorUpdateView(PermissionRequiredMixin, ListView):
     template_name = 'staff/distractor_update.html'
 
     # Try to create from CSV file a list of dictionaries to verify SQL data
-    def try_to_read_csv(sefl, file_path): 
+    def try_to_read_csv(self, file_path):
         data_list = []
         error = False
         try:
@@ -1218,10 +1232,14 @@ class DistractorUpdateView(PermissionRequiredMixin, ListView):
                 for _, row in enumerate(data_reader, start=2):
                     try:
                         data_list.append({
-                            'id': row[0] if row[0].strip() else None,
-                            'word': row[3],
-                            'language': row[1],
-                            'core_vocab': row[2],
+                            'id': int(row[0].strip()) if row[0].strip() else None,
+                            'word': row[3].strip().casefold(),
+                            'language': row[1].strip().title(),
+                            'core_vocab': (
+                                True if row[2].strip().upper() == "TRUE"
+                                else False if row[2].strip().upper() == "FALSE"
+                                else None
+                            ),
                         })
         # If an error occurs format an appropriate error message
                     except (ValueError, IndexError) as e:
@@ -1236,23 +1254,21 @@ class DistractorUpdateView(PermissionRequiredMixin, ListView):
 
     def check_CSV_for_errors(self, data_list, distractors, error):
         # Loop through CSV data to check each error type starting with ID column checks
-        distractor_keys = {
-            (d.word.strip().lower(), d.language.strip().lower()) for d in distractors
-        }
+        distractor_by_id = {d.id: d for d in distractors}
+        final_keys = set()
+        seen_ids = set()
         row = 1
         for item in data_list: 
             row += 1
             raw_id = item['id']
             if raw_id is not None:
-                try:
-                    distractor_id = int(raw_id)
-                except ValueError:
+                if raw_id in seen_ids:
                     error = True
                     break
-                else:
-                    if not distractors.filter(id=int(distractor_id)).exists():
-                        error = True
-                        break
+                seen_ids.add(raw_id)
+                if raw_id not in distractor_by_id:
+                    error = True
+                    break
             # Check that distractors are present and only contain alphabetic characters
             distractor = item['word']
             if not distractor:
@@ -1261,18 +1277,21 @@ class DistractorUpdateView(PermissionRequiredMixin, ListView):
             elif not ALLOWED_DISTRACTOR.fullmatch(distractor):
                 error = True
                 break
-            # Chack that new distractor is unique in its language list
-            if not item['id']:
-                key = (item['word'].strip().lower(), item['language'].strip().lower())
-                if key in distractor_keys:
-                    error = True
-                    break
+            if len(distractor) > 24:
+                error = True
+                break
+            # Check the final word/language pair for duplicate CSV rows and updates.
+            key = (item['word'].strip().lower(), item['language'].strip().lower())
+            if key in final_keys:
+                error = True
+                break
+            final_keys.add(key)
             # Verify that language is either English or French
-            if item['language'] not in {"English", "French"}:
+            if item['language'].strip().title() not in {"English", "French"}:
                 error = True
                 break
             # Check that value for core vocabulary identification is either True or False
-            if item['core_vocab'].strip().upper() not in {"TRUE", "FALSE"}:
+            if item['core_vocab'] not in {True, False}:
                 error = True
                 break
 
@@ -1293,7 +1312,7 @@ class DistractorUpdateView(PermissionRequiredMixin, ListView):
             error = self.check_CSV_for_errors(data_list, distractors, error)
 
         # If any error was found, redirect back to DistractorTestView
-        if error:
+        if error or not data_list:
             return render(request, 'staff/distractor_error_redirect.html')
 
         # Compare CSV data with database content and get stats
@@ -1322,12 +1341,11 @@ class DistractorUpdateView(PermissionRequiredMixin, ListView):
                     changed.append(f"{distractor} (toggle core vocab); {distractor.core_vocab} -> {item['core_vocab']}")
 
         # Count and track the disractors that will be deleted from the database
-        to_be_deleted = total - len(new) - len(changed)
         distractors_to_be_deleted = []
         for distractor in distractors:
             if distractor.id not in csv_ids:
-                to_be_deleted += 1
                 distractors_to_be_deleted.append(distractor)
+        to_be_deleted_count = len(distractors_to_be_deleted)
 
         context = {
             'profile': profile,
@@ -1337,7 +1355,7 @@ class DistractorUpdateView(PermissionRequiredMixin, ListView):
             'added_distractors': new,
             'edited': len(changed),
             'edited_distractors': changed,
-            'to_be_deleted': to_be_deleted,
+            'to_be_deleted': to_be_deleted_count,
             'distractors_to_be_deleted': distractors_to_be_deleted,
         }
         return render(request, self.template_name, context)
@@ -1357,93 +1375,137 @@ class DistractorUpdateView(PermissionRequiredMixin, ListView):
             }
             return render(request, self.template_name, context)
 
-        # Check that distractor ID is entered correctly for updates - Set up base data to verify
-        data_list, error = self.try_to_read_csv(DISTRACTOR_CSV_PATH)
-        if not error:
-            distractors = Distractor.objects.all()
-            error = self.check_CSV_for_errors(data_list, distractors, error)
-
-        # If any error was found, redirect back to DistractorTestView
-        if error:
-            return render(request, 'staff/distractor_error_redirect.html')
-
         # Populate / update the database. First set up variables to track changes.
         added_descriptors = 0
         edited_languages = 0
         edited_core_vocabs = 0
         edited_words = 0
+        missing_ids = []
 
-        # Compare new CSV data to database stored data and update the database
-        row = 1
-        for dict_obj in data_list:
-            row += 1
-            # Update the distractor if it is already in database (has an ID) and changes were made
-            if id_ := dict_obj['id']:
-                distractor = distractors.get(id=id_)
-                changed = False
-                if distractor.language != dict_obj['language']:
-                    distractor.language = dict_obj['language']
-                    edited_languages += 1
-                    changed = True
-                if distractor.core_vocab != dict_obj['core_vocab']:
-                    if dict_obj['core_vocab'] == "TRUE":
-                        distractor.core_vocab = True
+        # Final check for CSV errors before updating the database
+        data_list, error = self.try_to_read_csv(DISTRACTOR_CSV_PATH)
+        try:
+            with transaction.atomic():
+                distractors = Distractor.objects.select_for_update()
+                if not error:
+                    error = self.check_CSV_for_errors(data_list, distractors, error)
+
+                if error or not data_list:
+                    return render(request, 'staff/distractor_error_redirect.html')
+
+                # Delete distractors with IDs missing from database before adding and editing
+                stored_distractor_ids = list(distractors.values_list("pk", flat=True))
+                csv_distractor_ids = {
+                    int(item['id']) for item in data_list if item.get('id') is not None
+                }
+                missing_ids = [
+                    id_ for id_ in stored_distractor_ids
+                    if id_ not in csv_distractor_ids
+                ]
+                Distractor.objects.filter(id__in=missing_ids).delete()
+
+                # Compare new CSV data to database stored data and update the database
+                row = 1
+                for dict_obj in data_list:
+                    row += 1
+                    # Update the distractor if it is already in database (has an ID) and changes were made
+                    if id_ := dict_obj['id']:
+                        distractor = distractors.get(id=id_)
+                        changed = False
+                        if distractor.language != dict_obj['language']:
+                            distractor.language = dict_obj['language']
+                            edited_languages += 1
+                            changed = True
+                        if distractor.core_vocab != dict_obj['core_vocab']:
+                            distractor.core_vocab = dict_obj['core_vocab']
+                            edited_core_vocabs += 1
+                            changed = True
+                        if distractor.word != dict_obj['word']:
+                            distractor.word = dict_obj['word']
+                            edited_words += 1
+                            changed = True
+                        if changed:
+                            distractor.save()
+
                     else:
-                        distractor.core_vocab = False
-                    edited_core_vocabs += 1
-                    changed = True
-                if distractor.word != dict_obj['word']:
-                    distractor.word = dict_obj['word']
-                    edited_words += 1
-                    changed = True
-                if changed:
-                    distractor.save()
+                        Distractor.objects.create(
+                            language=dict_obj['language'],
+                            core_vocab=dict_obj['core_vocab'],
+                            word=dict_obj['word']
+                        )
+                        added_descriptors += 1
 
-            else:
-                distractor = Distractor.objects.create(
-                    language = dict_obj['language'],
-                    core_vocab = dict_obj['core_vocab'],
-                    word = dict_obj['word']
-                )
-                added_descriptors += 1
-
-        # Delete distractors from database if their IDs don't appear in the CSV
-        stored_distractor_ids = list(distractors.values_list("pk", flat=True))
-        csv_distractor_ids = {item['id'] for item in data_list}
-        missing_ids = [id_ for id_ in stored_distractor_ids if id_ not in csv_distractor_ids]
-        for id_ in missing_ids:
-            Distractor.objects.get(pk=id_).delete()
-
-        # Log all change counts in terminal - TODO - Put this in a log not print
-        print(f"Distractors added: {added_descriptors}\nDescriptor languages edited: {edited_languages}")
-        print(f"Distractor core vocab identification edited: {edited_core_vocabs}")
-        print(f"Descriptor words edited: {edited_words}")
-
-        # Write a new copy of distractors in the database to CSV
-        export_data = []
-        updated_distractors = Distractor.objects.all()
-        for distractor in updated_distractors:
-            export_data.append({
-                'id': distractor.id,
-                'language': distractor.language,
-                'core_vocab': distractor.core_vocab,
-                'word': distractor.word,
-            })
-
-        current_time = timezone.now()
-        now = current_time.strftime("%Y-%m-%d_%H-%M-%S")
-        with open(f"distractor_export_{now}.csv", 'w', newline="", encoding="utf-8-sig") as export:
-            writer = DictWriter(
-                export,
-                fieldnames=["distractor_id", "language", "core_vocab", "word"]
+        except IntegrityError as e:
+            messages.error(
+                request,
+                f"The distractor update was not applied because database data conflicts: {e}",
             )
-            writer.writeheader()
-            for distractor in export_data:
-                writer.writerow({
-                    'distractor_id': distractor['id'],
-                    'language': distractor['language'],
-                    'core_vocab': distractor['core_vocab'],
-                    'word': distractor['word']
+            return redirect(reverse_lazy('staff:distractor_test'))
+
+        # Write a new copy of distractors to CSV after the database transaction.
+        temporary_export = None
+        try:
+            export_data = []
+            updated_distractors = Distractor.objects.all()
+            for distractor in updated_distractors:
+                export_data.append({
+                    'id': distractor.id,
+                    'language': distractor.language,
+                    'core_vocab': str(distractor.core_vocab).upper(),
+                    'word': distractor.word,
                 })
+
+            export_dir = Path(settings.BASE_DIR)
+            export_dir.mkdir(parents=True, exist_ok=True)
+            now = timezone.now().strftime("%Y-%m-%d_%H-%M-%S")
+            export_path = export_dir / f"distractor_export_{now}.csv"
+
+            with NamedTemporaryFile(
+                mode='w',
+                newline='',
+                encoding='utf-8-sig',
+                dir=export_dir,
+                prefix='.distractor_export_',
+                suffix='.tmp',
+                delete=False,
+            ) as export:
+                temporary_export = Path(export.name)
+                writer = DictWriter(
+                    export,
+                    fieldnames=["distractor_id", "language", "core_vocab", "word"]
+                )
+                writer.writeheader()
+                for distractor in export_data:
+                    writer.writerow({
+                        'distractor_id': distractor['id'],
+                        'language': distractor['language'],
+                        'core_vocab': distractor['core_vocab'],
+                        'word': distractor['word']
+                    })
+                export.flush()
+                os.fsync(export.fileno())
+
+            os.replace(temporary_export, export_path)
+        except (OSError, CSV_Error) as e:
+            if temporary_export is not None:
+                try:
+                    temporary_export.unlink(missing_ok=True)
+                except OSError:
+                    pass
+            messages.error(
+                request,
+                f"The database update committed, but the distractor CSV export failed: {e}",
+            )
+            return redirect(reverse_lazy('frendj:glossary'))
+
+        # Send this message only after both the database update and export complete.
+        messages.success(
+            request,
+            (
+                f"Distractors added: {added_descriptors}\nDescriptor languages edited: {edited_languages}\n"
+                f"Distractor core vocab identification edited: {edited_core_vocabs}\n"
+                f"Descriptor words edited: {edited_words}\nDistractors deleted: {len(missing_ids)}"
+            )
+        )
 
         return redirect(reverse_lazy('frendj:glossary'))
