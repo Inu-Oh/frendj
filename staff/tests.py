@@ -12,6 +12,86 @@ from accounts.models import Profile
 from frendj.models import Distractor
 
 
+class DistractorTestViewTests(TestCase):
+    def setUp(self):
+        user = get_user_model().objects.create_superuser(
+            username="admin",
+            email="admin@example.com",
+            password="password",
+        )
+        Profile.objects.create(user=user, name="Admin")
+        self.client.force_login(user)
+
+    def post_csv(self, csv_content):
+        temp_dir = TemporaryDirectory()
+        self.addCleanup(temp_dir.cleanup)
+        csv_path = Path(temp_dir.name) / "distractors.csv"
+        csv_path.write_text(csv_content, encoding="utf-8")
+        patcher = patch("staff.views.DISTRACTOR_CSV_PATH", str(csv_path))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return self.client.post(reverse("staff:distractor_test"))
+
+    def test_get_renders_the_test_form(self):
+        response = self.client.get(reverse("staff:distractor_test"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "staff/distractor_test.html")
+        self.assertIsNotNone(response.context["test_form"])
+
+    def test_post_redirects_to_update_when_csv_is_valid(self):
+        response = self.post_csv(
+            "distractor_id,language,core_vocab,word\n"
+            ",English,FALSE,bonjour\n"
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("staff:distractor_update"),
+            fetch_redirect_response=False,
+        )
+
+    def test_post_reports_malformed_row(self):
+        response = self.post_csv(
+            "distractor_id,language,core_vocab,word\n"
+            ",English,FALSE\n"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "There was an error reading row 2")
+        self.assertEqual(response.context["error_sections"][0]["title"], "CSV file")
+
+    def test_post_reports_non_integer_and_unknown_ids_and_field_errors(self):
+        response = self.post_csv(
+            "distractor_id,language,core_vocab,word\n"
+            "not-an-id,English,FALSE,bonjour\n"
+            "999999,French,FALSE,salut\n"
+            ",German,maybe,bonjour!\n"
+            ",French,FALSE,abcdefghijklmnopqrstuvwxy\n"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        section_titles = {
+            section["title"] for section in response.context["error_sections"]
+        }
+        self.assertIn("Distractor ID column", section_titles)
+        self.assertIn("Distractor column", section_titles)
+        self.assertIn("Language column", section_titles)
+        self.assertIn("Core vocabulary column", section_titles)
+        self.assertContains(response, "not-an-id")
+
+    def test_post_reports_duplicate_new_distractors(self):
+        response = self.post_csv(
+            "distractor_id,language,core_vocab,word\n"
+            ",English,FALSE,bonjour\n"
+            ",English,TRUE,bonjour\n"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Duplicate distractors")
+        self.assertContains(response, "bonjour")
+
+
 class DistractorUpdateViewTests(TestCase):
     def setUp(self):
         user = get_user_model().objects.create_superuser(
@@ -42,6 +122,56 @@ class DistractorUpdateViewTests(TestCase):
             response,
             f'content="5;url={reverse("staff:distractor_test")}"',
         )
+
+    def test_get_summarizes_added_edited_and_deleted_distractors(self):
+        edited = Distractor.objects.create(
+            language="English",
+            core_vocab=False,
+            word="original",
+        )
+        deleted = Distractor.objects.create(
+            language="French",
+            core_vocab=False,
+            word="obsolete",
+        )
+
+        with TemporaryDirectory() as temp_dir:
+            csv_path = Path(temp_dir) / "distractors.csv"
+            csv_path.write_text(
+                "distractor_id,language,core_vocab,word\n"
+                f"{edited.id},French,TRUE,revised\n"
+                ",English,FALSE,nouveau\n",
+                encoding="utf-8",
+            )
+            with patch("staff.views.DISTRACTOR_CSV_PATH", str(csv_path)):
+                response = self.client.get(reverse("staff:distractor_update"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "staff/distractor_update.html")
+        self.assertEqual(response.context["stored_distractor_count"], 2)
+        self.assertEqual(response.context["new"], 1)
+        self.assertEqual(response.context["added_distractors"], [("nouveau", "English")])
+        self.assertEqual(response.context["distractors_edited"], 1)
+        self.assertEqual(response.context["total_edits"], 3)
+        self.assertEqual(response.context["to_be_deleted"], 1)
+        self.assertEqual(response.context["distractors_to_be_deleted"], [deleted])
+        self.assertContains(response, "The following 1 distractors will be edited")
+        self.assertContains(response, "Total changes that will be made: 3")
+
+    def test_get_shows_redirect_notice_for_empty_or_invalid_csv(self):
+        for csv_content in ("", "distractor_id,language,core_vocab,word\n,French,FALSE,bonjour!\n"):
+            with self.subTest(csv_content=csv_content), TemporaryDirectory() as temp_dir:
+                csv_path = Path(temp_dir) / "distractors.csv"
+                csv_path.write_text(csv_content, encoding="utf-8")
+                with patch("staff.views.DISTRACTOR_CSV_PATH", str(csv_path)):
+                    response = self.client.get(reverse("staff:distractor_update"))
+
+                self.assertEqual(response.status_code, 200)
+                self.assertTemplateUsed(
+                    response,
+                    "staff/distractor_error_redirect.html",
+                )
+                self.assertContains(response, "One or more errors were encountered")
 
     def test_post_rolls_back_updates_when_a_later_mutation_fails(self):
         distractor = Distractor.objects.create(

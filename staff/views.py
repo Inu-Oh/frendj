@@ -1087,7 +1087,7 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
                 try:
                     distractor_id = int(raw_id)
                 except ValueError:
-                    non_int_rows.append(f"{row} : {distractor_id}")
+                    non_int_rows.append(f"{row} : {raw_id}")
                 else:
                     if not distractors.filter(id=int(distractor_id)).exists():
                         wrong_id_rows.append(f"ID {distractor_id} at row {row}, ")
@@ -1333,19 +1333,20 @@ class DistractorUpdateView(PermissionRequiredMixin, ListView):
             # Track all changes made to distractors in the CSV
             else:
                 csv_ids.append(int(item['id']))
-                distractor_was_edited = False
+                distractor_to_be_edited = False
                 distractor = distractors.get(id=item['id'])
                 if distractor.language != item['language']:
                     changed.append(f"{distractor} (change language): {distractor.language} -> {item['language']}")
-                    distractor_was_edited = True
+                    distractor_to_be_edited = True
                 if distractor.word != item['word']:
                     changed.append(f"{distractor} (change distractor): {distractor.word} -> {item['word']}")
-                    distractor_was_edited = True
+                    distractor_to_be_edited = True
                 if distractor.core_vocab != item['core_vocab']:
                     changed.append(f"{distractor} (toggle core vocab); {distractor.core_vocab} -> {item['core_vocab']}")
-                    distractor_was_edited = True
-                if distractor_was_edited:
+                    distractor_to_be_edited = True
+                if distractor_to_be_edited:
                     distractors_edited += 1
+
         # Count and track the disractors that will be deleted from the database
         distractors_to_be_deleted = []
         for distractor in distractors:
@@ -1360,6 +1361,7 @@ class DistractorUpdateView(PermissionRequiredMixin, ListView):
             'new': len(new),
             'added_distractors': new,
             'total_edits': len(changed),
+            'distractors_edited': distractors_edited,
             'edited_distractors': changed,
             'to_be_deleted': to_be_deleted_count,
             'distractors_to_be_deleted': distractors_to_be_deleted,
