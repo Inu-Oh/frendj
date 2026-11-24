@@ -162,16 +162,35 @@ $(document).ready(function() {
         }
     });
 
+    function leaveWordBankPlaceholder(button) {
+        const placeholder = button.cloneNode(true);
+        placeholder.classList.add('quiz-word-placeholder');
+        placeholder.classList.add('text-light');
+        placeholder.disabled = true;
+        placeholder.draggable = false;
+        placeholder.setAttribute('aria-hidden', 'true');
+        button.replaceWith(placeholder);
+    }
+
     function returnToWordBank(button) {
         const buttonIndex = Number(button.dataset.wordIndex);
-        const $nextButton = $wordBank.children().filter(function () {
-            return Number(this.dataset.wordIndex) > buttonIndex;
+        const $placeholder = $wordBank.children().filter(function () {
+            return Number(this.dataset.wordIndex) === buttonIndex &&
+                $(this).hasClass('quiz-word-placeholder');
         }).first();
 
-        if ($nextButton.length) {
-            $(button).insertBefore($nextButton);
+        if ($placeholder.length) {
+            $placeholder.replaceWith(button);
         } else {
-            $wordBank.append(button);
+            const $nextButton = $wordBank.children().filter(function () {
+                return Number(this.dataset.wordIndex) > buttonIndex;
+            }).first();
+
+            if ($nextButton.length) {
+                $(button).insertBefore($nextButton);
+            } else {
+                $wordBank.append(button);
+            }
         }
 
         $(button).removeClass('btn-outline-primary').addClass('btn-light');
@@ -179,9 +198,10 @@ $(document).ready(function() {
 
     $(document).on('click', function(event) {
         const $button = $(event.target).closest('.quiz-word-button');
-        if (!$button.length) return;
+        if (!$button.length || $button.hasClass('quiz-word-placeholder')) return;
 
         if ($button.parent().is($wordBank)) {
+            leaveWordBankPlaceholder($button[0]);
             $answerWords.append($button);
             $button.removeClass('btn-light').addClass('btn-outline-primary');
             $button.trigger('focus');
@@ -197,7 +217,7 @@ $(document).ready(function() {
 
     $(document).on('dragstart', function(event) {
         const $button = $(event.target).closest('.quiz-word-button');
-        if (!$button.length) return;
+        if (!$button.length || $button.hasClass('quiz-word-placeholder')) return;
 
         const button = $button[0];
         const dataTransfer = event.originalEvent.dataTransfer;
@@ -225,7 +245,7 @@ $(document).ready(function() {
 
         event.preventDefault();
         const wordIndex = event.originalEvent.dataTransfer.getData('text/plain');
-        const $button = $(`.quiz-word-button[data-word-index="${wordIndex}"]`);
+        const $button = $(`.quiz-word-button:not(.quiz-word-placeholder)[data-word-index="${wordIndex}"]`);
         if (!$button.length) return;
 
         if ($destination.is($wordBank)) {
@@ -234,7 +254,13 @@ $(document).ready(function() {
             const $targetButton = $(event.target).closest('.quiz-word-button');
             if ($targetButton.length && $targetButton[0] === $button[0]) {
                 return;
-            } else if ($targetButton.length) {
+            }
+
+            if ($button.parent().is($wordBank)) {
+                leaveWordBankPlaceholder($button[0]);
+            }
+
+            if ($targetButton.length) {
                 const bounds = $targetButton[0].getBoundingClientRect();
                 const midpointY = bounds.top + bounds.height / 2;
                 const isSameRow = Math.abs(event.clientY - midpointY) <= bounds.height / 2;

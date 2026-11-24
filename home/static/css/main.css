@@ -382,6 +382,11 @@ body {
     gap: 0.5625rem;
 }
 
+.quiz-word-placeholder {
+    visibility: hidden;
+    pointer-events: none;
+}
+
 .quiz-bank-heading {
     margin-top: 1.625rem;
 }

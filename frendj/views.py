@@ -186,8 +186,8 @@ def feedback(
 
 
 def get_distractors(language):
-    core_count = randint(1, 3)
-    non_core_count = randint(2, 5)
+    core_count = randint(0, 2)
+    non_core_count = randint(1, 3)
 
     core_words = list(
         Distractor.objects
