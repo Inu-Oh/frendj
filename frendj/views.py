@@ -19,7 +19,7 @@ import string
 import re
 import unicodedata
 
-from .models import Module, Phrase, UserPhraseStrength
+from .models import Distractor, Module, Phrase, UserPhraseStrength
 from accounts.models import Profile
 from .forms import TestForm
 
@@ -35,6 +35,16 @@ def clear_session_data(request, *previous_question_data) -> None:
                 del request.session[data_key]
             except KeyError:
                 print(f'Exception Did not clear {data_key} from session.')
+
+
+def end_quiz(request, quiz_name) -> HttpResponseRedirect:
+    del request.session['test_count']
+    correct_count = request.session['correct_count']
+    msg = f'<h5 class="pb-3">{quiz_name} quiz done!</h5><p>You got '
+    msg += f'{correct_count} out of {QUIZ_LENGTH}.</p><p class="fs-4">Grade: '
+    msg += f'{round( (correct_count / QUIZ_LENGTH) * 100 )}%'
+    request.session['quiz_complete_msg'] = msg
+    return redirect(reverse_lazy('frendj:home'))
 
 
 def eval_answer(raw_answer: str, correct_translation: str) -> tuple[float, int]:
@@ -175,14 +185,24 @@ def feedback(
     return format_html('<span class="text-success">{}</span>', html_str)
 
 
-def end_quiz(request, quiz_name) -> HttpResponseRedirect:
-    del request.session['test_count']
-    correct_count = request.session['correct_count']
-    msg = f'<h5 class="pb-3">{quiz_name} quiz done!</h5><p>You got '
-    msg += f'{correct_count} out of {QUIZ_LENGTH}.</p><p class="fs-4">Grade: '
-    msg += f'{round( (correct_count / QUIZ_LENGTH) * 100 )}%'
-    request.session['quiz_complete_msg'] = msg
-    return redirect(reverse_lazy('frendj:home'))
+def get_distractors(language):
+    core_count = randint(1, 3)
+    non_core_count = randint(2, 5)
+
+    core_words = list(
+        Distractor.objects
+        .filter(language=language, core_vocab=True)
+        .order_by('?')
+        .values_list('word', flat=True)[:core_count]
+    )
+    non_core_words = list(
+        Distractor.objects
+        .filter(language=language, core_vocab=False)
+        .order_by('?')
+        .values_list('word', flat=True)[:non_core_count]
+    )
+
+    return core_words + non_core_words
 
 
 def match_answer(form, translations):
@@ -552,6 +572,12 @@ class BlockLearnView(LoginRequiredMixin, View):
     """
     template_name = 'frendj/blocklearn.html'
 
+    def _end_block_quiz(self, request, module, avg_strength):
+        msg = f'<h5 class="pb-3">Congrats!</h5><p><b>{module.name.capitalize()}'
+        msg += f'</b> module complete</p><p class="fs-4">Grade: {avg_strength}%</p>'
+        request.session['module_complete_msg'] = msg
+        return redirect(reverse_lazy('frendj:modules'))
+
     def get(self, request, pk):
         if ('testing_view' not in request.session or 
             request.session['testing_view'] != 'frendj:blocks'):
@@ -581,16 +607,25 @@ class BlockLearnView(LoginRequiredMixin, View):
 
         # Select random unlearned phrase for testing. Save to session for access in POST
         if counts['unlearned'] > 0:
-            user_phrase_strength = user_phrase_data.filter(learned=False).order_by('?').first() 
+            user_phrase_strength = (
+                user_phrase_data
+                .filter(
+                    learned=False,
+                    phrase__phrase_translations__isnull=False,
+                )
+                .distinct()
+                .order_by('?')
+                .first()
+            )
+            if user_phrase_strength is None:
+                return self._end_block_quiz(request, module, avg_strength)
+
             translation = user_phrase_strength.phrase.phrase_translations.first()
             translation_words = re.findall(r"\b[\w']+\b", translation.translation)
-            # num = randint(1, 5)
-            # if translation.language == "English":
-            #     pass # TODO install nltk use nltk.corpus wordnet
-            # else:
-            #     pass # TODO install wn WOLF French WordNet
-            # # TODO - 1 to 5 words to the list
-            shuffle(translation_words)
+            # Add distractor words and shuffle together
+            distractors = get_distractors(translation.language)
+            word_bank = translation_words + distractors
+            shuffle(word_bank)
 
             request.session.update({
                 'user_phrase_strength_id': user_phrase_strength.id,
@@ -605,7 +640,7 @@ class BlockLearnView(LoginRequiredMixin, View):
                 'form': form,
                 'module': module,
                 'phrase': user_phrase_strength.phrase,
-                'translation_words': translation_words,
+                'word_bank': word_bank,
                 'phrase_count':counts['total'],
                 'learned_count': counts['learned'],
                 'unlearned_count': counts['unlearned'],
@@ -615,10 +650,7 @@ class BlockLearnView(LoginRequiredMixin, View):
             }
             return render(request, self.template_name, context)
         else: # If no unlearned phrase is found, redirect to home page with completion message
-            msg = f'<h5 class="pb-3">Congrats!</h5><p><b>{module.name.capitalize()}'
-            msg += f'</b> module complete</p><p class="fs-4">Grade: {avg_strength}%</p>'
-            request.session['module_complete_msg'] = msg
-            return redirect(reverse_lazy('frendj:modules'))
+            return self._end_block_quiz(request, module, avg_strength)
 
     def post(self, request, pk):
         profile = Profile.objects.get(user=request.user)

@@ -10,7 +10,7 @@ from django.utils import timezone
 
 from accounts.models import Profile
 from .models import Module, Phrase, Translation, Distractor, UserPhraseStrength
-from .views import feedback
+from .views import feedback, get_distractors
 
 
 User = get_user_model()
@@ -211,6 +211,149 @@ class DistractorTestCase(TestCase):
     def test_invalid_distractor_too_long(self):
         long_distractor = Distractor(language="French", word="anticonstitutionnellement")
         self.assertFalse(long_distractor.is_valid_distractor())
+
+
+class GetDistractorsTests(TestCase):
+    def test_selects_requested_counts_from_language_and_core_groups(self):
+        english_core = [
+            Distractor.objects.create(
+                language="English",
+                word=f"core{index}",
+                core_vocab=True,
+            ).word
+            for index in range(2)
+        ]
+        english_non_core = [
+            Distractor.objects.create(
+                language="English",
+                word=f"common{index}",
+                core_vocab=False,
+            ).word
+            for index in range(3)
+        ]
+        Distractor.objects.create(
+            language="French",
+            word="bonjour",
+            core_vocab=True,
+        )
+
+        with patch("frendj.views.randint", side_effect=[2, 3]):
+            selected = get_distractors("English")
+
+        self.assertCountEqual(selected, english_core + english_non_core)
+
+    def test_returns_available_words_when_pool_is_smaller_than_requested(self):
+        Distractor.objects.create(
+            language="English",
+            word="core",
+            core_vocab=True,
+        )
+        Distractor.objects.create(
+            language="English",
+            word="common",
+            core_vocab=False,
+        )
+
+        with patch("frendj.views.randint", side_effect=[3, 7]):
+            selected = get_distractors("English")
+
+        self.assertCountEqual(selected, ["core", "common"])
+
+
+class BlockLearnViewTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="block-learner",
+            email="block-learner@example.com",
+            password="password",
+        )
+        Profile.objects.create(user=self.user, name="Block Learner")
+        self.module = Module.objects.create(name="Block Module")
+        self.client.force_login(self.user)
+
+    def test_get_ends_block_quiz_when_unlearned_phrases_have_no_translations(self):
+        phrase = Phrase.objects.create(
+            language="French",
+            phrase="Bonjour",
+            module=self.module,
+        )
+        UserPhraseStrength.objects.create(user=self.user, phrase=phrase)
+
+        response = self.client.get(
+            reverse("frendj:blocks", kwargs={"pk": self.module.id})
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("frendj:modules"),
+            fetch_redirect_response=False,
+        )
+        session = self.client.session
+        self.assertIn("Block module", session["module_complete_msg"])
+        self.assertIn("Grade: 0%", session["module_complete_msg"])
+        self.assertNotIn("quiz_complete_msg", session)
+        self.assertNotIn("user_phrase_strength_id", session)
+
+    def test_get_ends_block_quiz_when_module_has_no_unlearned_phrases(self):
+        phrase = Phrase.objects.create(
+            language="French",
+            phrase="Bonjour",
+            module=self.module,
+        )
+        UserPhraseStrength.objects.create(
+            user=self.user,
+            phrase=phrase,
+            learned=True,
+            strength=88,
+        )
+
+        response = self.client.get(
+            reverse("frendj:blocks", kwargs={"pk": self.module.id})
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("frendj:modules"),
+            fetch_redirect_response=False,
+        )
+        self.assertIn("Grade: 88%", self.client.session["module_complete_msg"])
+
+    def test_get_skips_untranslated_phrase_when_translated_one_is_available(self):
+        untranslated_phrase = Phrase.objects.create(
+            language="French",
+            phrase="Sans traduction",
+            module=self.module,
+        )
+        translated_phrase = Phrase.objects.create(
+            language="French",
+            phrase="Bonjour",
+            module=self.module,
+        )
+        Translation.objects.create(
+            language="English",
+            translation="Hello world",
+            phrase=translated_phrase,
+        )
+        UserPhraseStrength.objects.create(
+            user=self.user,
+            phrase=untranslated_phrase,
+        )
+        translated_strength = UserPhraseStrength.objects.create(
+            user=self.user,
+            phrase=translated_phrase,
+        )
+
+        with patch("frendj.views.get_distractors", return_value=[]):
+            response = self.client.get(
+                reverse("frendj:blocks", kwargs={"pk": self.module.id})
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.context["user_phrase_strength"],
+            translated_strength,
+        )
+        self.assertCountEqual(response.context["word_bank"], ["Hello", "world"])
 
 
 class UserPhraseStrengthTestCase(TestCase):

@@ -24,12 +24,18 @@
                 <p>Choose the words in the right order to translate the phrase.</p>
             </header>
 
-            {% if message %}
+            {% if message and phrase %}
                 <p class="quiz-message">{{ message }}</p>
             {% endif %}
 
             {% if not phrase %}
-                <p class="quiz-empty">Learn phrases before doing practice.</p>
+                <p class="quiz-empty">
+                    {% if message %}
+                        {{ message }}
+                    {% else %}
+                        Learn phrases before doing practice.
+                    {% endif %}
+                </p>
             {% else %}
                 <section class="quiz-prompt" aria-labelledby="quiz-prompt-label">
                     <span id="quiz-prompt-label" class="quiz-eyebrow">Translate this phrase</span>
@@ -52,10 +58,10 @@
 
                     <div class="quiz-bank-heading">
                         <span>Word bank</span>
-                        <span>{{ translation_words|length }} words</span>
+                        <span>{{ word_bank|length }} words</span>
                     </div>
                     <div id="word-bank" class="quiz-word-bank" aria-label="Available words">
-                        {% for word in translation_words %}
+                        {% for word in word_bank %}
                             <button type="button" class="btn btn-light quiz-word-button"
                                 data-word-index="{{ forloop.counter0 }}" draggable="true">
                                 {{ word }}
