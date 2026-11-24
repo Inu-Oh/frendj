@@ -319,6 +319,7 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
     def get(self, request):
         if not request.user.is_superuser:
             return redirect('frendj:home')
+        
         profile = Profile.objects.get(user=request.user)
         test_form = CsvForm()
 
@@ -331,8 +332,10 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
     def post(self, request):
         if not request.user.is_superuser:
             return redirect('frendj:home')
+        
         profile = Profile.objects.get(user=request.user)
         test_form = CsvForm(request.POST)
+
         if not test_form.is_valid():
             context = {
                 'profile': profile,
@@ -340,77 +343,99 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
             }
             return render(request, self.template_name, context)
 
-        # Try to create from CSV file a list of dictionaries to verify SQL data
+        # Try to create from CSV file a list of dictionaries to verify data
         data_list = []
-        message = ""
+        csv_errors = []
         try:
-            with open(PHRASE_CSV_PATH) as csvfile:
+            with open(PHRASE_CSV_PATH, newline="", encoding="utf-8-sig") as csvfile:
                 data_reader = reader(csvfile)
-                next(data_reader)
-                row_count = 1
-                for row in data_reader:
-                    row_count += 1
-                    id_cell_value = int(row[0]) if row[0] else ""
-                    dict_obj = {
-                        'phrase_id': id_cell_value,
-                        'module_name': row[1],
-                        'phrase': row[2],
-                        'phrase_lang': row[3],
-                        'translations': loads(row[4])
-                    }
-                    data_list.append(dict_obj)
-        # If an error occurs give feedback
-        except Exception as e:
-            message += f"There was an error reading the file at row {row_count}. "
-            message += "Correct the CSV before proceeding. "
-            message += str(row)
-            # TODO - review this if clause for removal as possible bug
-            if hasattr(e, 'message'):
-                e += e.message
+                next(data_reader, None)
+                for row_num, row in enumerate(data_reader, start=2):
+                    try:
+                        data_list.append({
+                            'phrase_id': row[0] if row[0].strip() else None,
+                            'module_name': row[1],
+                            'phrase': row[2],
+                            'phrase_lang': row[3],
+                            'translations': loads(row[4])
+                        })
+        # If an error occurs fromat an appropriate error message
+                    except (ValueError, IndexError) as e:
+                        csv_errors.append(
+                            f"There was an error reading row {row_num} of the CSV. "
+                            f"{e}. Correct the CSV before proceeding."
+                        )
+        except FileNotFoundError:
+            csv_errors.append(f"The file {DISTRACTOR_CSV_PATH} was not found.")
+        except (OSError, CSV_Error) as e:
+            csv_errors.append(
+                f"There was an error reading {PHRASE_CSV_PATH}: {e}. Correct the CSV before proceeding."
+            )
+
+        # With critical error reading CSV redirect to show error message
+        if csv_errors:
             context = {
                 'profile': profile,
                 'test_form': test_form,
-                'message': message,
-                'details': e
+                'error_sections': [
+                    {'title': "CSV file", 'messages': csv_errors}
+                ]
             }
             return render(request, self.template_name, context)
 
-        # Check that phrase id is entered correctly for updates
+        # Check that phrase ID is entered correctly for updates - Set up base data to verify
         phrases = Phrase.objects.all()
-        row, non_ints, wrong_ids = 1, "", ""
+        phrase_keys = {
+            (p.phrase.strip().lower(), p.language.strip().lower())  for p in phrases
+        }
+        # Track lists of errors by type
+        non_int_rows = []
+        wrong_id_rows = []
+        id_errors = []
+        missing_module_rows = []
+        error_sections = []
+
+        # Loop through CSV data to check each error type starting vith ID column
+        row = 1
         for item in data_list:
             row += 1
-            if phrase_id := item['phrase_id']:
-                if not isinstance(phrase_id, int):
-                    if not non_ints:
-                        non_ints += "These rows contain phrase IDs that are not intagers: "
-                    non_ints += f"{row}, "
-                try:
-                    if not phrases.get(id=phrase_id):
-                        if not wrong_ids:
-                            wrong_ids += "Phrase IDs at the following rows don't exist in the database."
-                            wrong_ids += "Delete if the it's a new phrase or "
-                            worng_ids += "correct if the phrase is already in the database: "
-                        wrong_ids += f"ID {phrase_id} at row {row}, "
-                except:
-                    if not wrong_ids:
-                        wrong_ids += "Phrase IDs at the following rows don't exist in the database."
-                        wrong_ids += "Delete if the it's a new phrase or "
-                        worng_ids += "correct if the phrase is already in the database: "
-                    wrong_ids += f"ID {phrase_id} at row {row}, "
-        if non_ints or wrong_ids:
-            message += "Errors with data entry for phrase ID column. " 
-            if non_ints:
-                message += non_ints + "\b\b. "
-            if wrong_ids:
-                message += wrong_ids+ "\b\b. "
-            message += "Correct all phrase IDs before running the test again. "
-            context = {
-                'profile': profile,
-                'test_form': test_form,
-                'message': message,
-            }
-            return render(request, self.template_name, context)
+            raw_id = item['phrase_id']
+            try:
+                phrase_id = int(raw_id)
+            except ValueError:
+                non_int_rows.append(f"{row} : {raw_id}")
+            else:
+                if not phrases.filter(id=int(phrase_id)).exists():
+                    wrong_id_rows.append(f"ID {phrase_id} at row {row}")
+            # Verify that module name is present for each phrase and not longer than 24 chars
+            module_name = item['module_name']
+            if not module_name:
+                missing_module_rows.append(row)
+            # ELIF - create allowed module name stting and chck
+            # IF - check length of module name
+
+            # Check that phrases are present and only contain alphabetic characters
+
+        # Format message if IDs are not entered correctly
+        if non_int_rows:
+            id_errors.append(
+                "These rows contain phrase IDs that are not intagers: "
+                + ", ".join(non_int_rows)
+            )
+
+        if wrong_id_rows:
+            id_errors.append(
+                "Phrase IDs at the following rows don't exist in the database. Delete"
+                " if it's a new phrase or correct if its already in the database: "
+                + ", ".join(wrong_id_rows)
+            )
+
+        if id_errors:
+            id_errors.append("Correct all phrase IDs before running the test again.")
+            error_sections.append({
+                'title': "Phrase ID column",
+                'messages': id_errors,
+            })
 
         # Verify that module name is entered for each phrase and not longer than 24 chars
         row = 1
@@ -1028,7 +1053,7 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
             with open(DISTRACTOR_CSV_PATH, newline="", encoding="utf-8-sig") as csvfile:
                 data_reader = reader(csvfile)
                 next(data_reader, None)
-                for row_number, row in enumerate(data_reader, start=2):
+                for row_num, row in enumerate(data_reader, start=2):
                     try:
                         data_list.append({
                             'id': row[0] if row[0].strip() else None,
@@ -1039,7 +1064,7 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
         # If an error occurs format an appropriate error message
                     except (ValueError, IndexError) as e:
                         csv_errors.append(
-                            f"There was an error reading row {row_number} of the CSV. "
+                            f"There was an error reading row {row_num} of the CSV. "
                             f"{e}. Correct the CSV before proceeding."
                         )
         except FileNotFoundError:
@@ -1127,7 +1152,7 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
         if id_errors:
             id_errors.append("Correct all distractor IDs before running the test again.")
             error_sections.append({
-                'title': 'Distractor ID column',
+                'title': "Distractor ID column",
                 'messages': id_errors,
             })
 
