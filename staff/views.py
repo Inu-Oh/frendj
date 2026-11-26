@@ -2,7 +2,7 @@ import os
 from csv import reader, DictWriter, Error as CSV_Error
 from json import loads
 from pathlib import Path
-from re import compile, match
+from re import compile, match, UNICODE
 from tempfile import NamedTemporaryFile
 
 from django.conf import settings
@@ -23,6 +23,7 @@ from .forms import ModuleForm, CreatePhraseForm, CreateTranslationForm, UpdatePh
 PHRASE_CSV_PATH = 'import_data.csv'
 DISTRACTOR_CSV_PATH = 'import_distractors.csv'
 ALLOWED_DISTRACTOR = compile(r"(?=.*[^\W\d_])(?:[^\W\d_]|['-])+")
+ALLOWED_PHRASE = compile(r"(?=.*[^\W\d_])(?:[^\W\d_]|[^\w\d_])+", UNICODE)
 
 
 class StaffMenuView(LoginRequiredMixin, ListView):
@@ -392,7 +393,13 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
         non_int_rows = []
         wrong_id_rows = []
         id_errors = []
-        missing_module_rows = []
+        missing_module_name_rows = []
+        long_module_name_rows = []
+        module_errors = []
+        missing_phrase_rows = []
+        non_allowed_phrase_rows = []
+        duplicates = []
+        phrase_errors = []
         error_sections = []
 
         # Loop through CSV data to check each error type starting vith ID column
@@ -410,11 +417,22 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
             # Verify that module name is present for each phrase and not longer than 24 chars
             module_name = item['module_name']
             if not module_name:
-                missing_module_rows.append(row)
-            # ELIF - create allowed module name stting and chck
-            # IF - check length of module name
-
-            # Check that phrases are present and only contain alphabetic characters
+                missing_module_name_rows.append(row)
+            elif len(module_name) > 24:
+                long_module_name_rows.append(row)
+            # Check that phrases are present and only contain alphabetic characters and punctuation
+            phrase = item["phrase"]
+            if not phrase:
+                missing_phrase_rows.append(row)
+            elif not ALLOWED_PHRASE.fullmatch(phrase):
+                non_allowed_phrase_rows.append(f'"{phrase}" at row {row}')
+            # Check that new phrase is unique in its language list
+            if not raw_id:
+                key = (item['phrase'].strip().lower(), item['language'].strip().lower())
+                if key in phrase_keys:
+                    duplicates.append({'phrase': phrase, 'row': row})
+                phrase_keys.add(key)
+            
 
         # Format message if IDs are not entered correctly
         if non_int_rows:
@@ -422,14 +440,12 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
                 "These rows contain phrase IDs that are not intagers: "
                 + ", ".join(non_int_rows)
             )
-
         if wrong_id_rows:
             id_errors.append(
                 "Phrase IDs at the following rows don't exist in the database. Delete"
                 " if it's a new phrase or correct if its already in the database: "
                 + ", ".join(wrong_id_rows)
             )
-
         if id_errors:
             id_errors.append("Correct all phrase IDs before running the test again.")
             error_sections.append({
@@ -437,72 +453,53 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
                 'messages': id_errors,
             })
 
-        # Verify that module name is entered for each phrase and not longer than 24 chars
-        row = 1
-        for item in data_list:
-            row += 1
-            if not item["module_name"]:
-                message += f"blank at row {row}, "
-            elif len(item["module_name"]) > 24:
-                message += f"name too long at row {row}, "
-        if message:
-            message += "Module names not provided or too long for phrases at rows: " + message
-            message += "\b\b. Provide module names for each phrase."
-            context = {
-                'profile': profile,
-                'test_form': test_form,
-                'message': message,
-            }
-            return render(request, self.template_name, context)
+        # Format message if module names are not entered correctly
+        if missing_module_name_rows:
+            module_errors.append(
+                "The following rows have blank values for module name: "
+                + ", ".join(missing_module_name_rows)
+            )
+        if long_module_name_rows:
+            module_errors.append(
+                "The following rows have module names that are longer than the 24 character limit: "
+                + ", ".join(long_module_name_rows)
+            )
+        if module_errors:
+            module_errors.append("Correct all module name errors before running the test again.")
+            error_sections.append({
+                'title': "Module name column",
+                'messages': module_errors,
+            })
         
-        # Check that phrases ware entered and only contain alphabetic characters
-        row, missing_phrases, non_alphas = 1, "", ""
-        for item in data_list:
-            row += 1
-            if not item["phrase"]:
-                if not missing_phrases:
-                    missing_phrases += "Phrase cells are blank at the following rows: "
-                missing_phrases += f"{row}, "
-            elif match(r'[a-zA-Z ]$', item["phrase"]):
-                if not non_alphas:
-                    non_alphas += "The following phrases include non-alpha characters: "
-                non_alphas += f'"{item["phrase"]}" at row {row}, '
-        if missing_phrases or non_alphas:
-            message += "Errors with data entry for phrase column. "
-            if missing_phrases:
-                message += missing_phrases + "\b\b. "
-            if non_alphas:
-                message += non_alphas + "\b\b. "
-            message += "Resolve missing phrases and replace non alphabetic characters."
-            context = {
-                'profile': profile,
-                'test_form': test_form,
-                'message': message,
-            }
-            return render(request, self.template_name, context)
-
-        # Check that new phrase is unique in its language list
-        phrase_list = [p.phrase.lower()+p.language.lower() for p in phrases]
-        duplicates, row = [], 1 # first row is heading
-        for item in data_list:
-            row += 1
-            if not item['phrase_id']:
-                if item['phrase'].lower()+item['phrase_lang'].lower() in phrase_list:
-                    duplicates.append({'phrase': item['phrase'], 'row': row})
-                    print("Duplicate phrase:", item['phrase'], 
-                        "Language:", item['phrase_lang'])
-                phrase_list.append(item['phrase'])
-        if len(duplicates):
-            message += "The CSV file includes phrases that are duplicates: "
-            for duplicate in duplicates:
-                message += f'"{duplicate['phrase']}" at row {duplicate['row']}, '
-            message += "\b\b. Make sure there are no duplicates before testing again."
-            context = {
-                'profile': profile,
-                'test_form': test_form,
-                'message': message,
-            }
-            return render(request, self.template_name, context)
+        # Fromat message if phrases are not present, only contain alphabetic chars, or include duplicates
+        if missing_phrase_rows:
+            phrase_errors.append(
+                "The following rows are missing phrases: "
+                + ", ".join(str(missing_phrase_rows))
+            )
+        if non_allowed_phrase_rows:
+            phrase_errors.append(
+                "The following rows have phrases with non-alphabetic / non-punctuation characters: "
+                + ", ".join(non_allowed_phrase_rows)
+            )
+        if phrase_errors:
+            phrase_errors.append("Correct all phrases before running the test again.")
+            error_sections.append({
+                'title': "Phrase column",
+                'messages': phrase_errors,
+            })
+        
+        # Format message if duplicate phrases are entered
+        if duplicates:
+            duplicate_messages = [
+                "The following rows list phrases that are duplicates: "
+                + ", ".join(f'"{d["phrase"]}" at row {d["row"]}' for d in duplicates),
+                "Make sure there are no duplicates before testing again.",
+            ]
+            error_sections.append({
+                'title': "Duplicate phrases",
+                'messages': duplicate_messages,
+            })
 
         # Verify either English or French
         row, lang_errors = 1, []
@@ -1125,10 +1122,10 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
             if len(distractor) > 24:
                 too_long_rows.append(f'"{distractor}" at row {row}')
             # Chack that new distractor is unique in its language list
-            if not item['id']:
+            if not raw_id:
                 key = (item['distractor'].strip().lower(), item['language'].strip().lower())
                 if key in distractor_keys:
-                    duplicates.append({'distractor': item['distractor'], 'row': row})
+                    duplicates.append({'distractor': distractor, 'row': row})
                 distractor_keys.add(key)
             # Verify that language is either English or French
             if item['language'] not in {"English", "French"}:
@@ -1173,9 +1170,7 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
                 + ", ".join(too_long_rows)
             )
         if distractor_errors:
-            distractor_errors.append(
-                "Resolve missing distractors, replace non-alpha chars and remove words longer than 24 chars."
-            )
+            distractor_errors.append("Correct all distractor words before running the test agian.")
             error_sections.append({
                 'title': 'Distractor column',
                 'messages': distractor_errors,
@@ -1189,7 +1184,7 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
                 "Make sure there are no duplicates before testing again.",
             ]
             error_sections.append({
-                'title': 'Duplicate distractors',
+                'title': "Duplicate distractors",
                 'messages': duplicate_messages,
             })
 
