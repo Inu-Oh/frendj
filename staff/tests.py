@@ -9,7 +9,102 @@ from django.test import TestCase
 from django.urls import reverse
 
 from accounts.models import Profile
-from frendj.models import Distractor
+from frendj.models import Distractor, Module, Phrase
+
+
+class CsvToDbTestViewTests(TestCase):
+    def setUp(self):
+        user = get_user_model().objects.create_superuser(
+            username="admin",
+            email="admin@example.com",
+            password="password",
+        )
+        Profile.objects.create(user=user, name="Admin")
+        self.client.force_login(user)
+
+    def post_csv(self, csv_content):
+        temp_dir = TemporaryDirectory()
+        self.addCleanup(temp_dir.cleanup)
+        csv_path = Path(temp_dir.name) / "phrases.csv"
+        csv_path.write_text(csv_content, encoding="utf-8")
+        patcher = patch("staff.views.PHRASE_CSV_PATH", str(csv_path))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return self.client.post(reverse("staff:csv_db_test"))
+
+    def test_get_renders_the_test_form(self):
+        response = self.client.get(reverse("staff:csv_db_test"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "staff/csv_db_test.html")
+        self.assertIsNotNone(response.context["test_form"])
+
+    def test_post_redirects_to_update_when_csv_is_valid(self):
+        response = self.post_csv(
+            "phrase_id,module_name,phrase,phrase_lang,translations\n"
+            ',Basics,bonjour,English,"[""hello"", ""hi""]"\n'
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("staff:csv_db_update"),
+            fetch_redirect_response=False,
+        )
+
+    def test_post_reports_malformed_row(self):
+        response = self.post_csv(
+            "phrase_id,module_name,phrase,phrase_lang,translations\n"
+            ",Basics,bonjour,English\n"
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "There was an error reading row 2")
+        self.assertEqual(response.context["error_sections"][0]["title"], "CSV file")
+
+    def test_post_accepts_blank_id_for_new_phrase(self):
+        response = self.post_csv(
+            "phrase_id,module_name,phrase,phrase_lang,translations\n"
+            ',Basics,bonjour,English,"[""hello""]"\n'
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("staff:csv_db_update"),
+            fetch_redirect_response=False,
+        )
+
+    def test_post_reports_field_errors_without_key_or_type_errors(self):
+        response = self.post_csv(
+            "phrase_id,module_name,phrase,phrase_lang,translations\n"
+            'not-an-id,,!,German,"""hello"""\n'
+            '999999,A very long module name,bonjour,English,"[]"\n'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        section_titles = {
+            section["title"] for section in response.context["error_sections"]
+        }
+        self.assertIn("Phrase ID column", section_titles)
+        self.assertIn("Module name column", section_titles)
+        self.assertIn("Phrase column", section_titles)
+        self.assertIn("Phrase language column", section_titles)
+        self.assertIn("Translation column", section_titles)
+
+    def test_post_reports_duplicate_new_phrases(self):
+        module = Module.objects.create(name="Basics")
+        Phrase.objects.create(
+            phrase="bonjour",
+            language="English",
+            module=module,
+        )
+        response = self.post_csv(
+            "phrase_id,module_name,phrase,phrase_lang,translations\n"
+            ',Basics,BONJOUR,English,"[""hello""]"\n'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Duplicate phrases")
+        self.assertContains(response, "BONJOUR")
 
 
 class DistractorTestViewTests(TestCase):

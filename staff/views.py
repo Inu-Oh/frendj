@@ -23,7 +23,7 @@ from .forms import ModuleForm, CreatePhraseForm, CreateTranslationForm, UpdatePh
 PHRASE_CSV_PATH = 'import_data.csv'
 DISTRACTOR_CSV_PATH = 'import_distractors.csv'
 ALLOWED_DISTRACTOR = compile(r"(?=.*[^\W\d_])(?:[^\W\d_]|['-])+")
-ALLOWED_PHRASE = compile(r"(?=.*[^\W\d_])(?:[^\W\d_]|[^\w\d_])+", UNICODE)
+ALLOWED_PHRASE = compile(r"(?=.*[^\W\d_])(?:[^\W\d_]|[\d]|[^\w\d_])+", UNICODE)
 
 
 class StaffMenuView(LoginRequiredMixin, ListView):
@@ -367,7 +367,7 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
                             f"{e}. Correct the CSV before proceeding."
                         )
         except FileNotFoundError:
-            csv_errors.append(f"The file {DISTRACTOR_CSV_PATH} was not found.")
+            csv_errors.append(f"The file {PHRASE_CSV_PATH} was not found.")
         except (OSError, CSV_Error) as e:
             csv_errors.append(
                 f"There was an error reading {PHRASE_CSV_PATH}: {e}. Correct the CSV before proceeding."
@@ -390,61 +390,86 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
             (p.phrase.strip().lower(), p.language.strip().lower())  for p in phrases
         }
         # Track lists of errors by type
-        non_int_rows = []
-        wrong_id_rows = []
-        id_errors = []
-        missing_module_name_rows = []
-        long_module_name_rows = []
-        module_errors = []
-        missing_phrase_rows = []
-        non_allowed_phrase_rows = []
-        duplicates = []
-        phrase_errors = []
-        error_sections = []
+        id_not_int_rows = []
+        id_mismatch_rows = []
+        module_name_blank_rows = []
+        module_name_too_long_rows = []
+        phrase_blank_rows = []
+        phrase_not_allowed_rows = []
+        phrase_duplicates = []
+        language_error_rows = []
+        translations_not_list_rows = []
+        translations_not_allowed_rows = []
+        translations_blank_rows = []
 
         # Loop through CSV data to check each error type starting vith ID column
         row = 1
         for item in data_list:
             row += 1
             raw_id = item['phrase_id']
-            try:
-                phrase_id = int(raw_id)
-            except ValueError:
-                non_int_rows.append(f"{row} : {raw_id}")
-            else:
-                if not phrases.filter(id=int(phrase_id)).exists():
-                    wrong_id_rows.append(f"ID {phrase_id} at row {row}")
+            if raw_id is not None:
+                try:
+                    phrase_id = int(raw_id)
+                except ValueError:
+                    id_not_int_rows.append(f"{row} : {raw_id}")
+                else:
+                    if not phrases.filter(id=phrase_id).exists():
+                        id_mismatch_rows.append(f"ID {phrase_id} at row {row}")
             # Verify that module name is present for each phrase and not longer than 24 chars
             module_name = item['module_name']
             if not module_name:
-                missing_module_name_rows.append(row)
+                module_name_blank_rows.append(str(row))
             elif len(module_name) > 24:
-                long_module_name_rows.append(row)
+                module_name_too_long_rows.append(f'"{module_name}" at row {row}')
             # Check that phrases are present and only contain alphabetic characters and punctuation
             phrase = item["phrase"]
             if not phrase:
-                missing_phrase_rows.append(row)
+                phrase_blank_rows.append(str(row))
             elif not ALLOWED_PHRASE.fullmatch(phrase):
-                non_allowed_phrase_rows.append(f'"{phrase}" at row {row}')
+                phrase_not_allowed_rows.append(f'"{phrase}" at row {row}')
             # Check that new phrase is unique in its language list
             if not raw_id:
-                key = (item['phrase'].strip().lower(), item['language'].strip().lower())
+                key = (
+                    item['phrase'].strip().lower(),
+                    item['phrase_lang'].strip().lower(),
+                )
                 if key in phrase_keys:
-                    duplicates.append({'phrase': phrase, 'row': row})
+                    phrase_duplicates.append({'phrase': phrase, 'row': row})
                 phrase_keys.add(key)
-            
+            # Verify that phrase language is either English or French
+            if item['phrase_lang'] not in {"English", "French"}:
+                language_error_rows.append(str(row))
+            # Verify that translations are present and only include alphabetic chars and punctuation
+            translations = item["translations"]
+            if type(translations) is not list:
+                translations_not_list_rows.append(str(row))
+            elif not translations:
+                translations_blank_rows.append(str(row))
+            else:
+                for translation in translations:
+                    if not isinstance(translation, str) or not ALLOWED_PHRASE.fullmatch(translation):
+                        translations_not_allowed_rows.append(
+                            f'"{translation}" at row {row}'
+                        )
+
+        # Track messages by category
+        id_errors = []
+        module_errors = []
+        phrase_errors = []
+        translations_errors = []
+        error_sections = []
 
         # Format message if IDs are not entered correctly
-        if non_int_rows:
+        if id_not_int_rows:
             id_errors.append(
                 "These rows contain phrase IDs that are not intagers: "
-                + ", ".join(non_int_rows)
+                + ", ".join(id_not_int_rows)
             )
-        if wrong_id_rows:
+        if id_mismatch_rows:
             id_errors.append(
                 "Phrase IDs at the following rows don't exist in the database. Delete"
                 " if it's a new phrase or correct if its already in the database: "
-                + ", ".join(wrong_id_rows)
+                + ", ".join(id_mismatch_rows)
             )
         if id_errors:
             id_errors.append("Correct all phrase IDs before running the test again.")
@@ -454,15 +479,15 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
             })
 
         # Format message if module names are not entered correctly
-        if missing_module_name_rows:
+        if module_name_blank_rows:
             module_errors.append(
                 "The following rows have blank values for module name: "
-                + ", ".join(missing_module_name_rows)
+                + ", ".join(module_name_blank_rows)
             )
-        if long_module_name_rows:
+        if module_name_too_long_rows:
             module_errors.append(
                 "The following rows have module names that are longer than the 24 character limit: "
-                + ", ".join(long_module_name_rows)
+                + ", ".join(module_name_too_long_rows)
             )
         if module_errors:
             module_errors.append("Correct all module name errors before running the test again.")
@@ -471,16 +496,16 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
                 'messages': module_errors,
             })
         
-        # Fromat message if phrases are not present, only contain alphabetic chars, or include duplicates
-        if missing_phrase_rows:
+        # Fromat message if phrases are not present, only contain alphabetic chars, or are duplicates
+        if phrase_blank_rows:
             phrase_errors.append(
                 "The following rows are missing phrases: "
-                + ", ".join(str(missing_phrase_rows))
+                + ", ".join(phrase_blank_rows)
             )
-        if non_allowed_phrase_rows:
+        if phrase_not_allowed_rows:
             phrase_errors.append(
                 "The following rows have phrases with non-alphabetic / non-punctuation characters: "
-                + ", ".join(non_allowed_phrase_rows)
+                + ", ".join(phrase_not_allowed_rows)
             )
         if phrase_errors:
             phrase_errors.append("Correct all phrases before running the test again.")
@@ -490,10 +515,10 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
             })
         
         # Format message if duplicate phrases are entered
-        if duplicates:
+        if phrase_duplicates:
             duplicate_messages = [
                 "The following rows list phrases that are duplicates: "
-                + ", ".join(f'"{d["phrase"]}" at row {d["row"]}' for d in duplicates),
+                + ", ".join(f'"{d["phrase"]}" at row {d["row"]}' for d in phrase_duplicates),
                 "Make sure there are no duplicates before testing again.",
             ]
             error_sections.append({
@@ -501,59 +526,50 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
                 'messages': duplicate_messages,
             })
 
-        # Verify either English or French
-        row, lang_errors = 1, []
-        for item in data_list:
-            row += 1
-            if item['phrase_lang'] not in ["French", "English"]:
-                lang_errors.append(row)
-        if lang_errors:
-            message = """Invalid language was entered in some rows. 
-                Use either French or English, capatialized, to indicate the phrase language.
-                Correct this in the CSV before proceeding. Affected rows include: """
-            for err in lang_errors:
-                message += str(err) + ", "
-            message += "\b\b."
-            context = {
-                'profile': profile,
-                'test_form': test_form,
-                'message': message,
-            }
-            return render(request, self.template_name, context)
+        # Format message if phrase language is other than Franch or English
+        if language_error_rows:
+            error_sections.append({
+                'title': "Phrase language column",
+                'messages': [
+                    (
+                        "Invalid language was entered in some rows. "
+                        "Use either French or English, capitalized, to indicate the phrase language. "
+                        "Correct this in the CSV before proceeding. Affected rows include: "
+                        + ", ".join(language_error_rows) + "."
+                    ),
+                ],
+            })
 
-        # Verify that all row have well formatted translations that include only alphabetic characters
-        row, non_lists, non_alphas, missing_translations = 1, "", "", ""
-        for item in data_list:
-            row += 1
-            if translations := item["translations"]:
-                if type(translations) is not list:
-                    if not non_lists:
-                        non_lists += "Translations in the following rows are not formatted correctly. "
-                        non_lists += "Enter all translations in double quotation marks in square brackets. "
-                        non_lists += "Example: [\"Translation one\", \"Two and\", \"Three\"]. Correct rows: "
-                    non_lists += f"{row}, "
-                for translation in translations:
-                    if match(r'[a-zA-Z ]$', translation):
-                        if not non_alphas:
-                            non_alphas += "Translations in the following rows include non-alphabetic characters: "
-                        non_alphas += f"{row}, "
-            else: # if list is empty
-                if not missing_translations:
-                    missing_translations += "Translations are missing for phrases in rows: "
-                missing_translations += f"{row}, "
-        if missing_translations or non_alphas or non_lists:
-            message += "Errors with data entry for translation column. "
-            if missing_translations:
-                message += missing_translations
-            if non_alphas:
-                message += non_alphas
-            if non_lists:
-                message += non_lists
-            message += "Correct all errors before proceeding with the test."
+        # Format message if translations are blank, not well formatted, or include character that are not allowed
+        if translations_not_list_rows:
+            translations_errors.append(
+                "Translations in the following rows are not formatted correctly: "
+                + ", ".join(translations_not_list_rows)
+                + ". Enter all translations in double quotation marks in square brackets. "
+                "Example: [\"Translation one\", \"Two and\", \"Three\"]."
+            )
+        if translations_not_allowed_rows:
+            translations_errors.append(
+                "Translations in the following rows include non-alphabetic characters: "
+                + ", ".join(translations_not_allowed_rows)
+            )
+        if translations_blank_rows:
+            translations_errors.append(
+                "The following rows missing translations: "
+                + ", ".join(translations_blank_rows)
+            )
+        if translations_errors:
+            error_sections.append({
+                'title': "Translation column",
+                'messages': translations_errors,
+            })
+
+        # If there are any error messages redirect back to same page to give feedback
+        if error_sections:
             context = {
                 'profile': profile,
                 'test_form': test_form,
-                'message': message,
+                'error_sections': error_sections,
             }
             return render(request, self.template_name, context)
 
@@ -1096,7 +1112,7 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
         too_long_rows = []
         distractor_errors = []
         duplicates = []
-        lang_errors = []
+        language_error_rows = []
         core_vocab_errors = []
         error_sections = []
 
@@ -1129,7 +1145,7 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
                 distractor_keys.add(key)
             # Verify that language is either English or French
             if item['language'] not in {"English", "French"}:
-                lang_errors.append(str(row))
+                language_error_rows.append(str(row))
             # Check that value for core vocabulary identification is either True or False
             if item['core_vocab'].strip().upper() not in {"TRUE", "FALSE"}:
                 core_vocab_errors.append(str(row))
@@ -1189,15 +1205,15 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
             })
 
         # Format message if language of distractor is other than French or English
-        if lang_errors:
+        if language_error_rows:
             error_sections.append({
-                'title': 'Language column',
+                'title': "Language column",
                 'messages': [
                     (
                         "Invalid language was entered in some rows. "
                         "Use either French or English, capatialized, to indicate the distractor language. "
                         "Correct this in the CSV before proceeding. Affected rows include: "
-                        + ", ".join(lang_errors) + "."
+                        + ", ".join(language_error_rows) + "."
                     ),
                 ],
             })
