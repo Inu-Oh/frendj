@@ -301,7 +301,7 @@ class UpdateTranslationView(PermissionRequiredMixin, UpdateView):
 
 
 # Two views for mass database updates from CSV to SQL
-class CsvToDbTestView(PermissionRequiredMixin, View):
+class PhraceCsvTestView(PermissionRequiredMixin, View):
     """
     Admin page. Tests whether import_data.csv is correctly populated to mass edit data.
     Otherwise it provides feedback on errors that need correction.
@@ -315,7 +315,7 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
         'frendj.change_phrase',
         'frendj.change_translation',
     ]
-    template_name = 'staff/csv_db_test.html'
+    template_name = 'staff/phrase_csv_test.html'
 
     def get(self, request):
         if not request.user.is_superuser:
@@ -574,10 +574,10 @@ class CsvToDbTestView(PermissionRequiredMixin, View):
             return render(request, self.template_name, context)
 
         # If check finds no errors redirect to update DB page
-        return redirect(reverse_lazy('staff:csv_db_update') )
+        return redirect(reverse_lazy('staff:phrase_import'))
 
 
-class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
+class PhraseCsvImportView(PermissionRequiredMixin, ListView):
     """
     Admin page. GET shows summary of changes that will be made to the database based on
     import_data.csv. If the CSV is free of errors, POST updates the SQL database.
@@ -591,7 +591,7 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
         'frendj.change_phrase',
         'frendj.change_translation',
     ]
-    template_name = 'staff/csv_db_update.html'
+    template_name = 'staff/phrase_import.html'
 
     def get(self, request):
         if not request.user.is_superuser:
@@ -691,7 +691,7 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
                 print("Translation list is empty. Error: ", error)
                 break
         if error:
-            return redirect('staff:csv_db_test')
+            return redirect('staff:phrase_csv_test')
 
         # Compare CSV data with database content and get stats
         current_phrase_count = phrases.count()
@@ -792,7 +792,7 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
             return render(request, self.template_name, context)
 
 
-        """The next six loops run same varfications as CsvToDbTestView, but abbreviated."""
+        """The next six loops run same varfications as PhraceCsvImportTestView, but abbreviated."""
         # Check that phrase id is entered correctly
         row = 1
         for item in data_list:
@@ -1020,7 +1020,7 @@ class CsvToDbUpdateView(PermissionRequiredMixin, ListView):
         return redirect(reverse_lazy('frendj:glossary'))
 
 
-class DistractorTestView(PermissionRequiredMixin, ListView):
+class DistractorCsvTestView(PermissionRequiredMixin, ListView):
     """
     Admin page. Tests whether import_distractos.csv is correctly populated to mass
     edit DB data. Otherwise it provides feedback on errors that need correction.
@@ -1030,7 +1030,7 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
         'frendj.add_distractor',
         'frendj.change_distractor',
     ]
-    template_name = 'staff/distractor_test.html'
+    template_name = 'staff/distractor_csv_test.html'
 
     def get(self, request):
         if not request.user.is_superuser:
@@ -1242,10 +1242,10 @@ class DistractorTestView(PermissionRequiredMixin, ListView):
             return render(request, self.template_name, context)
 
         # If check finds no errors redirect to distractor update page
-        return redirect(reverse_lazy('staff:distractor_update'))
+        return redirect(reverse_lazy('staff:distractor_import'))
 
 
-class DistractorUpdateView(PermissionRequiredMixin, ListView):
+class DistractorCsvImportView(PermissionRequiredMixin, ListView):
     """
     Admin page. GET shows summary of changes that will be made to the database based on
     import_distractor.csv. If the CSV is free of errors, POST updates the Postgres DB.
@@ -1255,7 +1255,7 @@ class DistractorUpdateView(PermissionRequiredMixin, ListView):
         'frendj.add_distractor',
         'frendj.change_distractor',
     ]
-    template_name = 'staff/distractor_update.html'
+    template_name = 'staff/distractor_import.html'
 
     # Try to create from CSV file a list of dictionaries to verify SQL data
     def try_to_read_csv(self, file_path):
@@ -1347,7 +1347,7 @@ class DistractorUpdateView(PermissionRequiredMixin, ListView):
             distractors = Distractor.objects.all()
             error = self.check_CSV_for_errors(data_list, distractors, error)
 
-        # If any error was found, redirect back to DistractorTestView
+        # If any error was found, redirect back to DistractorCsvTestView
         if error or not data_list:
             return render(request, 'staff/distractor_error_redirect.html')
 
@@ -1484,7 +1484,7 @@ class DistractorUpdateView(PermissionRequiredMixin, ListView):
                 request,
                 f"The distractor update was not applied because database data conflicts: {e}",
             )
-            return redirect(reverse_lazy('staff:distractor_test'))
+            return redirect(reverse_lazy('staff:distractor_csv_test'))
 
         # Write a new copy of distractors to CSV after the database transaction.
         temporary_export = None

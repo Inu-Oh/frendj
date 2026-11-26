@@ -12,7 +12,7 @@ from accounts.models import Profile
 from frendj.models import Distractor, Module, Phrase
 
 
-class CsvToDbTestViewTests(TestCase):
+class PhraseCsvTestViewTests(TestCase):
     def setUp(self):
         user = get_user_model().objects.create_superuser(
             username="admin",
@@ -30,13 +30,13 @@ class CsvToDbTestViewTests(TestCase):
         patcher = patch("staff.views.PHRASE_CSV_PATH", str(csv_path))
         patcher.start()
         self.addCleanup(patcher.stop)
-        return self.client.post(reverse("staff:csv_db_test"))
+        return self.client.post(reverse("staff:phrase_csv_test"))
 
     def test_get_renders_the_test_form(self):
-        response = self.client.get(reverse("staff:csv_db_test"))
+        response = self.client.get(reverse("staff:phrase_csv_test"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "staff/csv_db_test.html")
+        self.assertTemplateUsed(response, "staff/phrase_csv_test.html")
         self.assertIsNotNone(response.context["test_form"])
 
     def test_post_redirects_to_update_when_csv_is_valid(self):
@@ -47,7 +47,7 @@ class CsvToDbTestViewTests(TestCase):
 
         self.assertRedirects(
             response,
-            reverse("staff:csv_db_update"),
+            reverse("staff:phrase_import"),
             fetch_redirect_response=False,
         )
 
@@ -69,7 +69,7 @@ class CsvToDbTestViewTests(TestCase):
 
         self.assertRedirects(
             response,
-            reverse("staff:csv_db_update"),
+            reverse("staff:phrase_import"),
             fetch_redirect_response=False,
         )
 
@@ -107,7 +107,7 @@ class CsvToDbTestViewTests(TestCase):
         self.assertContains(response, "BONJOUR")
 
 
-class DistractorTestViewTests(TestCase):
+class DistractorCsvTestViewTests(TestCase):
     def setUp(self):
         user = get_user_model().objects.create_superuser(
             username="admin",
@@ -125,13 +125,13 @@ class DistractorTestViewTests(TestCase):
         patcher = patch("staff.views.DISTRACTOR_CSV_PATH", str(csv_path))
         patcher.start()
         self.addCleanup(patcher.stop)
-        return self.client.post(reverse("staff:distractor_test"))
+        return self.client.post(reverse("staff:distractor_csv_test"))
 
     def test_get_renders_the_test_form(self):
-        response = self.client.get(reverse("staff:distractor_test"))
+        response = self.client.get(reverse("staff:distractor_csv_test"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "staff/distractor_test.html")
+        self.assertTemplateUsed(response, "staff/distractor_csv_test.html")
         self.assertIsNotNone(response.context["test_form"])
 
     def test_post_redirects_to_update_when_csv_is_valid(self):
@@ -142,7 +142,7 @@ class DistractorTestViewTests(TestCase):
 
         self.assertRedirects(
             response,
-            reverse("staff:distractor_update"),
+            reverse("staff:distractor_import"),
             fetch_redirect_response=False,
         )
 
@@ -187,7 +187,7 @@ class DistractorTestViewTests(TestCase):
         self.assertContains(response, "bonjour")
 
 
-class DistractorUpdateViewTests(TestCase):
+class DistractorCsvImportViewTests(TestCase):
     def setUp(self):
         user = get_user_model().objects.create_superuser(
             username="admin",
@@ -208,14 +208,14 @@ class DistractorUpdateViewTests(TestCase):
                 patch("staff.views.DISTRACTOR_CSV_PATH", str(csv_path)),
                 patch.object(Distractor.objects, "all", return_value=[]),
             ):
-                response = self.client.get(reverse("staff:distractor_update"))
+                response = self.client.get(reverse("staff:distractor_import"))
 
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, "staff/distractor_error_redirect.html")
         self.assertContains(response, "One or more errors were encountered")
         self.assertContains(
             response,
-            f'content="5;url={reverse("staff:distractor_test")}"',
+            f'content="5;url={reverse("staff:distractor_csv_test")}"',
         )
 
     def test_get_summarizes_added_edited_and_deleted_distractors(self):
@@ -239,10 +239,10 @@ class DistractorUpdateViewTests(TestCase):
                 encoding="utf-8",
             )
             with patch("staff.views.DISTRACTOR_CSV_PATH", str(csv_path)):
-                response = self.client.get(reverse("staff:distractor_update"))
+                response = self.client.get(reverse("staff:distractor_import"))
 
         self.assertEqual(response.status_code, 200)
-        self.assertTemplateUsed(response, "staff/distractor_update.html")
+        self.assertTemplateUsed(response, "staff/distractor_import.html")
         self.assertEqual(response.context["stored_distractor_count"], 2)
         self.assertEqual(response.context["new"], 1)
         self.assertEqual(response.context["added_distractors"], [("nouveau", "English")])
@@ -259,7 +259,7 @@ class DistractorUpdateViewTests(TestCase):
                 csv_path = Path(temp_dir) / "distractors.csv"
                 csv_path.write_text(csv_content, encoding="utf-8")
                 with patch("staff.views.DISTRACTOR_CSV_PATH", str(csv_path)):
-                    response = self.client.get(reverse("staff:distractor_update"))
+                    response = self.client.get(reverse("staff:distractor_import"))
 
                 self.assertEqual(response.status_code, 200)
                 self.assertTemplateUsed(
@@ -293,7 +293,7 @@ class DistractorUpdateViewTests(TestCase):
                 ),
             ):
                 with self.assertRaisesRegex(RuntimeError, "CSV mutation failed"):
-                    self.client.post(reverse("staff:distractor_update"))
+                    self.client.post(reverse("staff:distractor_import"))
 
         distractor.refresh_from_db()
         self.assertEqual(distractor.word, "original")
@@ -321,7 +321,7 @@ class DistractorUpdateViewTests(TestCase):
                     side_effect=OSError("disk full"),
                 ),
             ):
-                response = self.client.post(reverse("staff:distractor_update"))
+                response = self.client.post(reverse("staff:distractor_import"))
 
             remaining_temp_files = list(Path(temp_dir).glob(".distractor_export_*.tmp"))
 
@@ -365,7 +365,7 @@ class DistractorUpdateViewTests(TestCase):
                 patch("staff.views.DISTRACTOR_CSV_PATH", str(csv_path)),
                 patch("staff.views.settings.BASE_DIR", temp_dir),
             ):
-                response = self.client.post(reverse("staff:distractor_update"))
+                response = self.client.post(reverse("staff:distractor_import"))
 
         updated.refresh_from_db()
         self.assertEqual(updated.word, "changed")
@@ -404,7 +404,7 @@ class DistractorUpdateViewTests(TestCase):
             )
 
             with patch("staff.views.DISTRACTOR_CSV_PATH", str(csv_path)):
-                response = self.client.post(reverse("staff:distractor_update"))
+                response = self.client.post(reverse("staff:distractor_import"))
 
         first.refresh_from_db()
         second.refresh_from_db()
@@ -434,7 +434,7 @@ class DistractorUpdateViewTests(TestCase):
                 patch("staff.views.DISTRACTOR_CSV_PATH", str(csv_path)),
                 patch("staff.views.settings.BASE_DIR", temp_dir),
             ):
-                response = self.client.post(reverse("staff:distractor_update"))
+                response = self.client.post(reverse("staff:distractor_import"))
 
         self.assertFalse(Distractor.objects.filter(id=replaced.id).exists())
         self.assertTrue(
@@ -469,11 +469,11 @@ class DistractorUpdateViewTests(TestCase):
                     side_effect=IntegrityError("unique conflict"),
                 ),
             ):
-                response = self.client.post(reverse("staff:distractor_update"))
+                response = self.client.post(reverse("staff:distractor_import"))
 
         self.assertEqual(response.status_code, 302)
         self.assertRedirects(
             response,
-            reverse("staff:distractor_test"),
+            reverse("staff:distractor_csv_test"),
             fetch_redirect_response=False,
         )
