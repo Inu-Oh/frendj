@@ -26,17 +26,27 @@
             <div class="row p-3">
                 <div class="col-6">
                     <h5>Mass content update from CSV file</h5>
-                    {% if changed > 0 %}
+                    {% if phrases_to_be_deleted %}
                         <div class="w-100 py-3">
                             <span class="text-danger fw-bolder">
-                                The following phrases will be edited in the database:
+                                The following {{ total_deletions }} phrases will be deleted from the database:
+                            </span>
+                            {% for phrase in phrases_to_be_deleted %}
+                                <p class="my-2">{{ forloop.counter }}. {{ phrase }}</p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                    {% if total_edits > 0 %}
+                        <div class="w-100 py-3">
+                            <span class="text-danger fw-bolder">
+                                The following {{ phrases_edited }} phrases will be edited in the database:
                             </span>
                             {% for phrase in changed_phrases %}
                                 <p class="my-2">{{ forloop.counter }}. {{ phrase }}</p>
                             {% endfor %}
                         </div>
                     {% endif %}
-                    {% if new > 0 %}
+                    {% if total_added > 0 %}
                         <div class="w-100 py-3">
                             <span class="text-danger fw-bolder">
                                 The following phrases will be added to the database:
@@ -50,16 +60,18 @@
                     {% endif %}
                 </div>
                 <div class="col-6">
-                    <p class="fs-5">New phrases to be added {{ new }}<br>
-                        Phrases currently in database {{ current_phrase_count }}<br>
-                        Phrases that will not be changed: {{ unchanged }} <br>
-                        Phrases that will be changed: {{ changed }}</p>
-                    {% if changed > 0 or new > 0 %}
+                    <p class="fs-5">New phrases: {{ total_added }}<br>
+                        Phrases currently in the database: {{ stored_phrase_count }}<br>
+                        Phrases to be deleted: {{ total_deletions }}<br>
+                        Phrases that will be edited: {{ phrases_edited }}<br>
+                        Total changes that will be made: {{ total_edits }}
+                    </p>
+                    {% if total_edits > 0 or total_added > 0 or total_deletions > 0 %}
                         {% load crispy_forms_tags %}
                         <form action="" method="post" enctype="multipart/form-data"
                             class="csv-processing-form">
                             {% csrf_token %}
-                            {{ submit_form|crispy }}
+                            {{ update_form|crispy }}
                             <input type="submit" value="Submit"
                                 class="btn auth-button auth-primary m-2">
                             <input type="submit" value="Cancel &nbsp;&raquo;&nbsp; return to menu"

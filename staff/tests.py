@@ -1,3 +1,6 @@
+import csv
+import json
+from io import StringIO
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
@@ -9,7 +12,7 @@ from django.test import TestCase
 from django.urls import reverse
 
 from accounts.models import Profile
-from frendj.models import Distractor, Module, Phrase
+from frendj.models import Distractor, Module, Phrase, Translation
 
 
 class PhraseCsvTestViewTests(TestCase):
@@ -31,6 +34,24 @@ class PhraseCsvTestViewTests(TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
         return self.client.post(reverse("staff:phrase_csv_test"))
+
+    def post_rows(self, *rows):
+        csv_file = StringIO()
+        csv_writer = csv.writer(csv_file)
+        csv_writer.writerow(
+            ["phrase_id", "module_name", "phrase", "phrase_lang", "translations"]
+        )
+        for phrase_id, module_name, phrase, language, translations in rows:
+            csv_writer.writerow(
+                [
+                    phrase_id,
+                    module_name,
+                    phrase,
+                    language,
+                    json.dumps(translations),
+                ]
+            )
+        return self.post_csv(csv_file.getvalue())
 
     def test_get_renders_the_test_form(self):
         response = self.client.get(reverse("staff:phrase_csv_test"))
@@ -105,6 +126,71 @@ class PhraseCsvTestViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Duplicate phrases")
         self.assertContains(response, "BONJOUR")
+
+    def test_post_reports_module_names_with_disallowed_characters(self):
+        response = self.post_rows(("", "Basics_test", "bonjour", "English", ["hello"]))
+
+        self.assertEqual(response.status_code, 200)
+        section = next(
+            section
+            for section in response.context["error_sections"]
+            if section["title"] == "Module name column"
+        )
+        self.assertIn("characters that are not allowed", " ".join(section["messages"]))
+        self.assertIn('"Basics_test" at row 2', " ".join(section["messages"]))
+
+    def test_post_reports_translations_with_disallowed_characters(self):
+        response = self.post_rows(("", "Basics", "bonjour", "English", ["hello_world"]))
+
+        self.assertEqual(response.status_code, 200)
+        section = next(
+            section
+            for section in response.context["error_sections"]
+            if section["title"] == "Translation column"
+        )
+        self.assertIn("non-alphabetic characters", " ".join(section["messages"]))
+        self.assertIn('"hello_world" at row 2', " ".join(section["messages"]))
+
+    def test_post_reports_phrases_longer_than_248_characters(self):
+        phrase = "a" * 249
+        response = self.post_rows(("", "Basics", phrase, "English", ["hello"]))
+
+        self.assertEqual(response.status_code, 200)
+        section = next(
+            section
+            for section in response.context["error_sections"]
+            if section["title"] == "Phrase column"
+        )
+        self.assertIn("longer than 248", " ".join(section["messages"]))
+        self.assertIn(f'"{phrase}" at row 2', " ".join(section["messages"]))
+
+    def test_post_reports_translations_longer_than_248_characters(self):
+        translation = "a" * 249
+        response = self.post_rows(
+            ("", "Basics", "bonjour", "English", [translation])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        section = next(
+            section
+            for section in response.context["error_sections"]
+            if section["title"] == "Translation column"
+        )
+        self.assertIn("longer than 248", " ".join(section["messages"]))
+        self.assertIn(f'"{translation}" at row 2', " ".join(section["messages"]))
+
+    def test_post_reports_empty_translation_entries_as_blank(self):
+        response = self.post_rows(("", "Basics", "bonjour", "English", [""]))
+
+        self.assertEqual(response.status_code, 200)
+        section = next(
+            section
+            for section in response.context["error_sections"]
+            if section["title"] == "Translation column"
+        )
+        messages = " ".join(section["messages"])
+        self.assertIn("rows missing translations: 2", messages)
+        self.assertNotIn("non-alphabetic characters", messages)
 
 
 class DistractorCsvTestViewTests(TestCase):
@@ -185,6 +271,84 @@ class DistractorCsvTestViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Duplicate distractors")
         self.assertContains(response, "bonjour")
+
+
+class PhraseCsvImportViewTests(TestCase):
+    def setUp(self):
+        user = get_user_model().objects.create_superuser(
+            username="admin",
+            email="admin@example.com",
+            password="password",
+        )
+        Profile.objects.create(user=user, name="Admin")
+        self.client.force_login(user)
+
+    def get_csv(self, csv_content):
+        with TemporaryDirectory() as temp_dir:
+            csv_path = Path(temp_dir) / "phrases.csv"
+            csv_path.write_text(csv_content, encoding="utf-8")
+            with patch("staff.views.PHRASE_CSV_PATH", str(csv_path)):
+                return self.client.get(reverse("staff:phrase_import"))
+
+    def test_get_summarizes_added_edited_and_deleted_phrases(self):
+        module = Module.objects.create(name="Basics")
+        edited = Phrase.objects.create(
+            language="French",
+            phrase="bonjour",
+            module=module,
+        )
+        deleted = Phrase.objects.create(
+            language="French",
+            phrase="obsolete",
+            module=module,
+        )
+        Translation.objects.create(
+            language="English",
+            translation="hello",
+            phrase=edited,
+        )
+
+        response = self.get_csv(
+            "phrase_id,module_name,phrase,phrase_lang,translations\n"
+            f'{edited.id},Greetings,bonjour!,French,"[""hello"", ""salut""]"\n'
+            ',Basics,nouveau,French,"[""welcome""]"\n'
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "staff/phrase_import.html")
+        self.assertEqual(response.context["stored_phrase_count"], 2)
+        self.assertEqual(response.context["total_added"], 1)
+        self.assertEqual(response.context["added_phrases"], [("nouveau", "French")])
+        self.assertEqual(response.context["phrases_edited"], 1)
+        self.assertEqual(response.context["total_edits"], 3)
+        self.assertEqual(response.context["total_deletions"], 1)
+        self.assertEqual(response.context["phrases_to_be_deleted"], [deleted])
+        self.assertContains(response, "The following 1 phrases will be deleted")
+        self.assertContains(response, "Total changes that will be made: 3")
+
+    def test_get_renders_redirect_notice_for_empty_or_invalid_csv(self):
+        csv_files = (
+            "",
+            "phrase_id,module_name,phrase,phrase_lang,translations\n"
+            ',Basics,bonjour,French,"{}"\n',
+            "phrase_id,module_name,phrase,phrase_lang,translations\n"
+            ',Basics,bonjour,French,"[]"\n',
+        )
+        for csv_content in csv_files:
+            with self.subTest(csv_content=csv_content):
+                response = self.get_csv(csv_content)
+
+                self.assertEqual(response.status_code, 200)
+                self.assertTemplateUsed(
+                    response,
+                    "staff/phrase_error_redirect.html",
+                )
+                self.assertContains(response, "One or more errors were encountered")
+                self.assertContains(response, "Phrase Test page")
+                self.assertContains(
+                    response,
+                    f'content="5;url={reverse("staff:phrase_csv_test")}"',
+                )
 
 
 class DistractorCsvImportViewTests(TestCase):
