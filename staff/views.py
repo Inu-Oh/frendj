@@ -394,6 +394,7 @@ class PhraceCsvTestView(PermissionRequiredMixin, View):
         id_mismatch_rows = []
         module_name_blank_rows = []
         module_name_too_long_rows = []
+        module_name_not_allowed_rows = []
         phrase_blank_rows = []
         phrase_not_allowed_rows = []
         phrase_duplicates = []
@@ -421,6 +422,8 @@ class PhraceCsvTestView(PermissionRequiredMixin, View):
                 module_name_blank_rows.append(str(row))
             elif len(module_name) > 24:
                 module_name_too_long_rows.append(f'"{module_name}" at row {row}')
+            elif not ALLOWED_PHRASE.fullmatch(module_name):
+                module_name_not_allowed_rows.append(f'"{module_name}" at row {row}')
             # Check that phrases are present and only contain alphabetic characters and punctuation
             phrase = item["phrase"]
             if not phrase:
@@ -488,6 +491,12 @@ class PhraceCsvTestView(PermissionRequiredMixin, View):
             module_errors.append(
                 "The following rows have module names that are longer than the 24 character limit: "
                 + ", ".join(module_name_too_long_rows)
+            )
+        if module_name_not_allowed_rows:
+            module_errors.append(
+                "Some rows have module names with characters that are not allowed."
+                "Remove any chars other than alphanumeric and punctuation from the following: "
+                + ", ".join(module_name_not_allowed_rows)
             )
         if module_errors:
             module_errors.append("Correct all module name errors before running the test again.")
