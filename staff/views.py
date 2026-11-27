@@ -593,6 +593,84 @@ class PhraseCsvImportView(PermissionRequiredMixin, ListView):
     ]
     template_name = 'staff/phrase_import.html'
 
+    # Try to create from CSV file a list of dictionaries to verify SQL data
+    def try_to_read_csv(self, file_path):
+        data_list = []
+        error = False
+        try:
+            with open(file_path, newline="", encoding="utf-8-sig") as csvfile:
+                data_reader = reader(csvfile)
+                next(data_reader, None)
+                for _, row in enumerate(data_reader, start=2):
+                    try:
+                        data_list.append({
+                            'phrase_id': int(row[0].strip()) if row[0].strip() else None,
+                            'module_name': row[1].strip().casefold(),
+                            'phrase': row[2].strip().casefold(),
+                            'phrase_lang': row[3].strip().title(),
+                            'translations': loads(row[4])
+                        })
+        # If an error occurs return error to redirect back to PhraseCsvTestView
+                    except (ValueError, IndexError):
+                        error = True
+                        break
+        except (OSError, CSV_Error):
+            error = True
+        return data_list, error
+
+    # Loop through CSV data to check each error type starting with ID column checks
+    def check_csv_for_errors(self, data_list, phrases, error):
+        phrase_by_id = {p.id: p for p in phrases}
+        final_keys = set()
+        seen_ids = set()
+        row = 1
+        for item in data_list:
+            row += 1
+            raw_id = item["phrase_id"]
+            if raw_id is not None:
+                if raw_id in seen_ids or raw_id not in phrase_by_id:
+                    error = True
+                    break
+                seen_ids.add(raw_id)
+            # Verify that module name is present and not longer than 24 chars
+            module_name = item["module_name"]
+            if ( not module_name or (len(module_name) > 24) ):
+                error = True
+                break
+            elif not ALLOWED_PHRASE.fullmatch(module_name):
+                error = True
+                break
+            # Check that phrases ware entered and only contain alphabetic characters
+            if not item["phrase"] or match(r'[a-zA-Z ]$', item["phrase"]):
+                error = True
+                break
+            # Check that new phrase is unique in its language list
+            phrase_list = [p.phrase.lower()+p.language.lower() for p in phrases]
+            if not item['phrase_id']:
+            
+                if item['phrase'].lower()+item['phrase_lang'].lower() in phrase_list:
+                    error = True
+                    break
+            # Verify either English or French for language options
+            if item["phrase_lang"] not in ["French", "English"]:
+                error = True
+                break
+            # Verify that all row have well formatted translations that include only alphabetic characters
+            if item_translations := item["translations"]:
+                if type(item_translations) is not list:
+                    error = True
+                    break
+                for translation in item_translations:
+                    if not translation or match(r'[a-zA-Z ]$', translation):
+                        error = True
+                        break
+            else: # if translation list is empty
+                error = True
+                break
+
+        return error
+        
+        
     def get(self, request):
         if not request.user.is_superuser:
             return redirect('frendj:home')
@@ -601,95 +679,12 @@ class PhraseCsvImportView(PermissionRequiredMixin, ListView):
         translations = Translation.objects.all()
         submit_form = CsvForm() 
 
-        # Try to create from CSV file a list of dictionaries to verify SQL data
-        data_list = []
-        try:
-            with open(PHRASE_CSV_PATH) as csvfile:
-                data_reader = reader(csvfile)
-                next(data_reader)
-                row_count = 1
-                for row in data_reader:
-                    row_count += 1
-                    dict_obj = {
-                        'phrase_id': row[0],
-                        'module_name': row[1],
-                        'phrase': row[2],
-                        'phrase_lang': row[3],
-                        'translations': loads(row[4])
-                    }
-                    data_list.append(dict_obj)
-        # If an error occurs give feedback
-        except Exception as e:
-            message = f"There was an error reading the file. "
-            message += "Review the CSV and return to test form before running update. "
-            context = {
-                'profile': profile,
-                'message': message,
-                'details': e
-            }
-            return render(request, self.template_name, context)
+        # Check that phrase IDs are entered correctly for updates - Set up base data to verify
+        data_list, error = self.try_to_read_csv(PHRASE_CSV_PATH)
+        if not error:
+            phrases = Phrase.objects.all()
+        
 
-        # TODO - remove print statements in checks after testing
-        # Run all checks to test data and redirect to test page if there are any errors
-        error, error_msg = False, "No errors"
-        phrases = Phrase.objects.all()
-        phrase_list = [p.phrase.lower()+p.language.lower() for p in phrases]
-        for item in data_list:
-            # Check that phrase id is entered correctly for updates
-            if phrase_id := item["phrase_id"]:
-                try:
-                    phrase_id = int(phrase_id)
-                except ValueError:
-                    error = True
-                    print("Phrase id is not an int. Error: ", error)
-                    break
-                try:
-                    if not phrases.get(id=phrase_id):
-                        error = True
-                        print("Phrase ID is wrong. Error: ", error)
-                        break
-                except:
-                    error = True
-                    print("Phrase ID is wrong. Error: ", error)
-                    break
-            # Verify that module name is entered for each phrase and not longer than 24 chars
-            if ( not item["module_name"] or (len(item["module_name"]) > 24) ):
-                error = True
-                print("Module name error. Error: ", error)
-                break
-            # Check that phrases ware entered and only contain alphabetic characters
-            if not item["phrase"] or match(r'[a-zA-Z ]$', item["phrase"]):
-                error = True
-                print("Phrase blank or misformatted. Error: ", error)
-                break
-            # Check that new phrase is unique in its language list
-            if not item['phrase_id']:
-                print(item['phrase'].lower()+item['phrase_lang'].lower())
-                if item['phrase'].lower()+item['phrase_lang'].lower() in phrase_list:
-                    error = True
-                    print("Duplicate phrase. Error: ", error, item['phrase'], 
-                        "Language: ", item['phrase_lang'])
-                    break
-            # Verify either English or French for language options
-            if item["phrase_lang"] not in ["French", "English"]:
-                error = True
-                print("Language is not French or English. Error: ", error)
-                break
-            # Verify that all row have well formatted translations that include only alphabetic characters
-            if item_translations := item["translations"]:
-                if type(item_translations) is not list:
-                    error = True
-                    print("Translations are not in a list format. Error: ", error)
-                    break
-                for translation in item_translations:
-                    if not translation or match(r'[a-zA-Z ]$', translation):
-                        error = True
-                        print("A translation is blank or not alphabetic. Error: ", error)
-                        break
-            else: # if translation list is empty
-                error = True
-                print("Translation list is empty. Error: ", error)
-                break
         if error:
             return redirect('staff:phrase_csv_test')
 
@@ -1277,19 +1272,17 @@ class DistractorCsvImportView(PermissionRequiredMixin, ListView):
                                 else None
                             ),
                         })
-        # If an error occurs format an appropriate error message
-                    except (ValueError, IndexError) as e:
+        # If an error occurs return error to redirect back to PhraseCsvTestView
+                    except (ValueError, IndexError):
                         error = True
                         break
-        except FileNotFoundError:
-            error = True
         except (OSError, CSV_Error):
             error = True
 
         return data_list, error
 
+    # Loop through CSV data to check each error type starting with ID column checks
     def check_CSV_for_errors(self, data_list, distractors, error):
-        # Loop through CSV data to check each error type starting with ID column checks
         distractor_by_id = {d.id: d for d in distractors}
         final_keys = set()
         seen_ids = set()
@@ -1298,22 +1291,16 @@ class DistractorCsvImportView(PermissionRequiredMixin, ListView):
             row += 1
             raw_id = item['id']
             if raw_id is not None:
-                if raw_id in seen_ids:
+                if raw_id in seen_ids or raw_id not in distractor_by_id:
                     error = True
                     break
                 seen_ids.add(raw_id)
-                if raw_id not in distractor_by_id:
-                    error = True
-                    break
-            # Check that distractors are present and only contain alphabetic characters
+            # Check that distractors are present and only contain 24 alphabetic characters
             distractor = item['word']
-            if not distractor:
+            if not distractor or len(distractor) > 24:
                 error = True
                 break
             elif not ALLOWED_DISTRACTOR.fullmatch(distractor):
-                error = True
-                break
-            if len(distractor) > 24:
                 error = True
                 break
             # Check the final word/language pair for duplicate CSV rows and updates.
@@ -1341,7 +1328,7 @@ class DistractorCsvImportView(PermissionRequiredMixin, ListView):
         distractors = Distractor.objects.all()
         update_form = CsvForm()
 
-        # Check that distractor ID is entered correctly for updates - Set up base data to verify
+        # Check that distractor IDs are entered correctly for updates - Set up base data to verify
         data_list, error = self.try_to_read_csv(DISTRACTOR_CSV_PATH)
         if not error:
             distractors = Distractor.objects.all()
