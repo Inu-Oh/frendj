@@ -301,7 +301,7 @@ class UpdateTranslationView(PermissionRequiredMixin, UpdateView):
 
 
 # Two views for mass database updates from CSV to SQL
-class PhraceCsvTestView(PermissionRequiredMixin, View):
+class PhraseCsvTestView(PermissionRequiredMixin, View):
     """
     Admin page. Tests whether import_data.csv is correctly populated to mass edit data.
     Otherwise it provides feedback on errors that need correction.
@@ -396,12 +396,14 @@ class PhraceCsvTestView(PermissionRequiredMixin, View):
         module_name_too_long_rows = []
         module_name_not_allowed_rows = []
         phrase_blank_rows = []
+        phrase_too_long_rows = []
         phrase_not_allowed_rows = []
         phrase_duplicates = []
         language_error_rows = []
         translations_not_list_rows = []
         translations_not_allowed_rows = []
         translations_blank_rows = []
+        translations_too_long_rows = []
 
         # Loop through CSV data to check each error type starting vith ID column
         row = 1
@@ -428,6 +430,8 @@ class PhraceCsvTestView(PermissionRequiredMixin, View):
             phrase = item["phrase"]
             if not phrase:
                 phrase_blank_rows.append(str(row))
+            elif len(phrase) > 248:
+                phrase_too_long_rows.append(f'"{phrase}" at row {row}')
             elif not ALLOWED_PHRASE.fullmatch(phrase):
                 phrase_not_allowed_rows.append(f'"{phrase}" at row {row}')
             # Check that new phrase is unique in its language list
@@ -446,14 +450,16 @@ class PhraceCsvTestView(PermissionRequiredMixin, View):
             translations = item["translations"]
             if type(translations) is not list:
                 translations_not_list_rows.append(str(row))
-            elif not translations:
-                translations_blank_rows.append(str(row))
             else:
                 for translation in translations:
                     if not isinstance(translation, str) or not ALLOWED_PHRASE.fullmatch(translation):
                         translations_not_allowed_rows.append(
                             f'"{translation}" at row {row}'
                         )
+                    elif not translation:
+                        translations_blank_rows.append(str(row))
+                    elif len(translation) > 248:
+                        translations_too_long_rows.append(f'"{translation}" at row {row}')
 
         # Track messages by category
         id_errors = []
@@ -510,6 +516,11 @@ class PhraceCsvTestView(PermissionRequiredMixin, View):
             phrase_errors.append(
                 "The following rows are missing phrases: "
                 + ", ".join(phrase_blank_rows)
+            )
+        if phrase_too_long_rows:
+            phrase_errors.append(
+                "The following phrases are longer than 248 charsacters and need to be shortened:"
+                + ", ".join(phrase_too_long_rows)
             )
         if phrase_not_allowed_rows:
             phrase_errors.append(
@@ -635,47 +646,38 @@ class PhraseCsvImportView(PermissionRequiredMixin, ListView):
         row = 1
         for item in data_list:
             row += 1
-            raw_id = item["phrase_id"]
+            raw_id = item['phrase_id']
             if raw_id is not None:
                 if raw_id in seen_ids or raw_id not in phrase_by_id:
                     error = True
                     break
                 seen_ids.add(raw_id)
             # Verify that module name is present and not longer than 24 chars
-            module_name = item["module_name"]
-            if ( not module_name or (len(module_name) > 24) ):
+            mod_name = item['module_name']
+            if not mod_name or len(mod_name) > 24 or not ALLOWED_PHRASE.fullmatch(mod_name):
                 error = True
                 break
-            elif not ALLOWED_PHRASE.fullmatch(module_name):
+            # Check that phrases ware entered, are unique and only contain 248 alphabetic characters
+            p = item['phrase']
+            phrase_language = item['phrase_lang']
+            key = (p.strip().lower(), phrase_language.strip().lower())
+            if not p or len(p) > 248 or not ALLOWED_PHRASE.fullmatch(p) or key in final_keys:
                 error = True
                 break
-            # Check that phrases ware entered and only contain alphabetic characters
-            if not item["phrase"] or match(r'[a-zA-Z ]$', item["phrase"]):
-                error = True
-                break
-            # Check that new phrase is unique in its language list
-            phrase_list = [p.phrase.lower()+p.language.lower() for p in phrases]
-            if not item['phrase_id']:
-            
-                if item['phrase'].lower()+item['phrase_lang'].lower() in phrase_list:
-                    error = True
-                    break
+            final_keys.add(key)
             # Verify either English or French for language options
-            if item["phrase_lang"] not in ["French", "English"]:
+            if phrase_language.strip().title() not in {"French", "English"}:
                 error = True
                 break
             # Verify that all row have well formatted translations that include only alphabetic characters
-            if item_translations := item["translations"]:
-                if type(item_translations) is not list:
-                    error = True
-                    break
-                for translation in item_translations:
-                    if not translation or match(r'[a-zA-Z ]$', translation):
-                        error = True
-                        break
-            else: # if translation list is empty
+            translations = item["translations"]
+            if type(t) is not list:
                 error = True
                 break
+            for t in translations:
+                if not t or len(t) > 248 or not ALLOWED_PHRASE.fullmatch(t):
+                    error = True
+                    break
 
         return error
         
@@ -692,14 +694,20 @@ class PhraseCsvImportView(PermissionRequiredMixin, ListView):
         data_list, error = self.try_to_read_csv(PHRASE_CSV_PATH)
         if not error:
             phrases = Phrase.objects.all()
+            error = self.check_csv_for_errors(data_list, phrases, error)
         
-
-        if error:
-            return redirect('staff:phrase_csv_test')
+        # If any error was found, redirect back to DistractorCsvTestView
+        if error or not data_list:
+            return render(request, 'staff/phrase_error_redirect.html')
 
         # Compare CSV data with database content and get stats
         current_phrase_count = phrases.count()
-        total, changed, new, csv_phrase_ids = 0, [], [], []
+        total = 0
+        changed = []
+        phrases_edited = 0
+        new = []
+        csv_phrase_ids = []
+
 
         # Count all the items in the data list
         for item in data_list:
@@ -725,13 +733,12 @@ class PhraseCsvImportView(PermissionRequiredMixin, ListView):
                     if old_translations != new_translations:
                         changed.append(f"{phrase.phrase} (change translations): {', '.join(old_translations)} -> {', '.join(new_translations)}")
 
-        # TODO - change this to count number of phrases to be deleted from the database
-        # - unchanged is because deletion was not yet set up - TODO - delete in post
-        # Count the number of unchanged phrases in the database based on the changes 
-        unchanged = total - len(new) - len(changed)
+        # Count and track the disractors that will be deleted from the database
+        phrases_to_be_deleted = []
         for phrase in phrases:
             if phrase.id not in csv_phrase_ids:
-                unchanged += 1
+                phrases_to_be_deleted.append(phrase)
+        to_be_deleted_count = len(phrases_to_be_deleted)
 
         context = {
             'profile': profile,
@@ -741,7 +748,6 @@ class PhraseCsvImportView(PermissionRequiredMixin, ListView):
             'added_phrases': new,
             'changed': len(changed),
             'changed_phrases': changed,
-            'unchanged': unchanged,
         }
         return render(request, self.template_name, context)
 
@@ -1306,14 +1312,11 @@ class DistractorCsvImportView(PermissionRequiredMixin, ListView):
                 seen_ids.add(raw_id)
             # Check that distractors are present and only contain 24 alphabetic characters
             distractor = item['word']
-            if not distractor or len(distractor) > 24:
-                error = True
-                break
-            elif not ALLOWED_DISTRACTOR.fullmatch(distractor):
+            if not distractor or len(distractor) > 24 or not ALLOWED_DISTRACTOR.fullmatch(distractor):
                 error = True
                 break
             # Check the final word/language pair for duplicate CSV rows and updates.
-            key = (item['word'].strip().lower(), item['language'].strip().lower())
+            key = (distractor.strip().lower(), item['language'].strip().lower())
             if key in final_keys:
                 error = True
                 break

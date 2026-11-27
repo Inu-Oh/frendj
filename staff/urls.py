@@ -20,7 +20,7 @@ urlpatterns = [
           views.UpdateTranslationView.as_view(),name='edit_translation'),
 
      # Mass add / update modules, phrases and translations from CSV to DB
-     path('phrase_csv_test', views.PhraceCsvTestView.as_view(), name='phrase_csv_test'),
+     path('phrase_csv_test', views.PhraseCsvTestView.as_view(), name='phrase_csv_test'),
      path('phrase_import', views.PhraseCsvImportView.as_view(), name='phrase_import'),
 
      # Mass add / update distractors from CSV to DB
