@@ -404,6 +404,7 @@ class PhraseCsvTestView(PermissionRequiredMixin, View):
         translations_not_allowed_rows = []
         translations_blank_rows = []
         translations_too_long_rows = []
+        translations_duplicate_rows = []
 
         # Loop through CSV data to check each error type starting vith ID column
         row = 1
@@ -448,6 +449,7 @@ class PhraseCsvTestView(PermissionRequiredMixin, View):
                 language_error_rows.append(str(row))
             # Verify that translations are present and only include alphabetic chars and punctuation
             translations = item["translations"]
+            duplicate_check = set()
             if type(translations) is not list:
                 translations_not_list_rows.append(str(row))
             else:
@@ -464,6 +466,9 @@ class PhraseCsvTestView(PermissionRequiredMixin, View):
                         )
                     elif len(translation) > 248:
                         translations_too_long_rows.append(f'"{translation}" at row {row}')
+                    elif translation in duplicate_check:
+                        translations_duplicate_rows.append(f'"{translation}" at row {row}')
+                    duplicate_check.add(translation)
 
         # Track messages by category
         id_errors = []
@@ -587,6 +592,11 @@ class PhraseCsvTestView(PermissionRequiredMixin, View):
                 "The following rows missing translations: "
                 + ", ".join(translations_blank_rows)
             )
+        if translations_duplicate_rows:
+            translations_errors.append(
+                "The following rows have duplicate equivalent translations: "
+                + ", ".join(translations_duplicate_rows)
+            )
         if translations_errors:
             error_sections.append({
                 'title': "Translation column",
@@ -689,6 +699,7 @@ class PhraseCsvImportView(PermissionRequiredMixin, ListView):
                 break
             # Verify that all row have well formatted translations that include only alphabetic characters
             translations = item["translations"]
+            duplicate_check = set()
             if not isinstance(translations, list) or not translations:
                 error = True
                 break
@@ -698,9 +709,11 @@ class PhraseCsvImportView(PermissionRequiredMixin, ListView):
                     or not translation
                     or len(translation) > 248
                     or not ALLOWED_PHRASE.fullmatch(translation)
+                    or translation in duplicate_check
                 ):
                     error = True
                     break
+                duplicate_check.add(translation)
 
         return error
         
@@ -789,129 +802,122 @@ class PhraseCsvImportView(PermissionRequiredMixin, ListView):
     def post(self, request):
         if not request.user.is_superuser:
             return redirect('frendj:home')
+        
         profile = Profile.objects.get(user=request.user)
-        modules = Module.objects.all()
-        phrases = Phrase.objects.all()
-        translations = Translation.objects.all()
-        submit_form = CsvForm(request.POST)
-        if not submit_form.is_valid():
-            message = "The update failed due to an invalid form. Contact IT for support."
+        update_form = CsvForm(request.POST)
+        if not update_form.is_valid():
+            message = "Your request couldn't complete. Please try again. If error persists, contact the support team."
             context = {
                 'profile': profile,
                 'message': message,
             }
             return render(request, self.template_name, context)
+
+        # Populate / update the database. First set up variables to track changes.
+        added_phrases = 0
+        edited_modules = 0
+        edited_phrases = 0
+        edited_languages = 0
+        edited_translations = 0
+        missing_ids = []
         
-        # Read the CSV file and create list of dicts to track prhase data
-        data_list, val_error = [], ""
+        # Final check for CSV errors before updating the database
+        data_list, error = self.try_to_read_csv(PHRASE_CSV_PATH)
         try:
-            with open(PHRASE_CSV_PATH) as csvfile:
-                data_reader = reader(csvfile)
-                next(data_reader)
-                row_count = 1
-                for row in data_reader:
-                    id_cell_value = int(row[0]) if row[0] else ""
-                    dict_obj = {
-                        'row': row_count,
-                        'phrase_id': id_cell_value,
-                        'module_name': row[1],
-                        'phrase': row[2],
-                        'phrase_lang': row[3],
-                        'translations': loads(row[4])
-                    }
-                    if not dict_obj['module_name'] or not dict_obj['phrase'] or not dict_obj['phrase_lang'] or not dict_obj['translations']:
-                        val_error += f"There is blank data at row {dict_obj['row']}. "
-                        raise ValueError
-                    data_list.append(dict_obj)
-                    row_count += 1
-        # If an error occurs give feedback
-        except Exception as e:
-            message = "There was an error reading the file. "
-            message += val_error
-            message += "Review the CSV and return to test form before running update. "
-            context = {
-                'profile': profile,
-                'message': message,
-                'details': e
-            }
-            return render(request, self.template_name, context)
+            with transaction.atomic():
+                phrases = Phrase.objects.select_for_update()
+                if not error:
+                    error = self.check_csv_for_errors(data_list, phrases, error)
 
+                if error or not data_list:
+                    return render(request, 'staff/phrase_error_redirect.html')
 
-        """The next six loops run same varfications as PhraceCsvImportTestView, but abbreviated."""
-        # Check that phrase id is entered correctly
-        row = 1
-        for item in data_list:
-            row += 1
-            if phrase_id := item["phrase_id"]:
-                if not isinstance(phrase_id, int) or not phrases.get(id=phrase_id):
-                    message = "Errors with data entry in the phrase ID column. "
-                    message += "Review the data before continuing." 
-                    context = { 'profile': profile, 'message': message }
-                    return render(request, self.template_name, context)
-
-        # Verify that module name is entered for each phrase
-        row = 1
-        for item in data_list:
-            row += 1
-            if not item["module_name"]:
-                message = "Module names are missing. Provide module names for each phrase before continuing."
-                context = { 'profile': profile, 'message': message }
-                return render(request, self.template_name, context)
+                modules = Module.objects.select_for_update()
+                translations = Translation.objects.select_for_update()
+                stored_phrase_ids = list(phrases.values_list('pk', flat=True))
+                csv_phrase_ids = {
+                    int(item['phrase_id']) for item in data_list if item.get('phrase_id') 
+                }
         
-        # Check that phrases ware entered and only contain alphabetic characters
-        row = 1
-        for item in data_list:
-            row += 1
-            if not item["phrase"] or match(r'[a-zA-Z ]$', item["phrase"]):
-                message = "Some phrases are too long or include non-alphabetic characters. "
-                message += "Add missing phrases and replace non alphabetic characters before continuing."
-                context = { 'profile': profile, 'message': message }
-                return render(request, self.template_name, context)
+                # Check that phrase id is entered correctly
+                row = 1
+                for item in data_list:
+                    row += 1
+                    if phrase_id := item["phrase_id"]:
+                        if not isinstance(phrase_id, int) or not phrases.get(id=phrase_id):
+                            message = "Errors with data entry in the phrase ID column. "
+                            message += "Review the data before continuing." 
+                            context = { 'profile': profile, 'message': message }
+                            return render(request, self.template_name, context)
 
-        # Check that new phrases are unique
-        phrase_list, row = [phrase.phrase for phrase in phrases], 1
-        for item in data_list:
-            row += 1
-            if not item["phrase_id"]:
-                if phrase := item["phrase"] in phrase_list:
-                    message = "The CSV file includes duplicate phrases. Remove them before continuing."
-                    context = { 'profile': profile, 'message': message }
-                    return render(request, self.template_name, context)                    
-                else:
-                    phrase_list.append(phrase)
+                # Verify that module name is entered for each phrase
+                row = 1
+                for item in data_list:
+                    row += 1
+                    if not item["module_name"]:
+                        message = "Module names are missing. Provide module names for each phrase before continuing."
+                        context = { 'profile': profile, 'message': message }
+                        return render(request, self.template_name, context)
+                
+                # Check that phrases ware entered and only contain alphabetic characters
+                row = 1
+                for item in data_list:
+                    row += 1
+                    if not item["phrase"] or match(r'[a-zA-Z ]$', item["phrase"]):
+                        message = "Some phrases are too long or include non-alphabetic characters. "
+                        message += "Add missing phrases and replace non alphabetic characters before continuing."
+                        context = { 'profile': profile, 'message': message }
+                        return render(request, self.template_name, context)
 
-        # Verify either English or French for language options
-        row = 1
-        for item in data_list:
-            row += 1
-            if item["phrase_lang"] not in ["French", "English"]:
-                message = "Some rows list an invalid phrase language. Review all rows and ensure that "
-                message += "phrases have either French or English language before continuing."
-                context = { 'profile': profile, 'message': message }
-                return render(request, self.template_name, context)
+                # Check that new phrases are unique
+                phrase_list, row = [phrase.phrase for phrase in phrases], 1
+                for item in data_list:
+                    row += 1
+                    if not item["phrase_id"]:
+                        if phrase := item["phrase"] in phrase_list:
+                            message = "The CSV file includes duplicate phrases. Remove them before continuing."
+                            context = { 'profile': profile, 'message': message }
+                            return render(request, self.template_name, context)                    
+                        else:
+                            phrase_list.append(phrase)
 
-        # Verify that all phrases have translations and those include only alphabetic characters
-        row, non_lists, non_alphas, missing_translations = 1, False, False, False
-        for item in data_list:
-            row += 1
-            if item["translations"]:
-                if type(item["translations"]) is not list:
-                    non_lists = True
-                    break
-                for translation in item["translations"]:
-                    if match(r'[a-zA-Z ]$', translation):
-                        non_alphas = True
+                # Verify either English or French for language options
+                row = 1
+                for item in data_list:
+                    row += 1
+                    if item["phrase_lang"] not in ["French", "English"]:
+                        message = "Some rows list an invalid phrase language. Review all rows and ensure that "
+                        message += "phrases have either French or English language before continuing."
+                        context = { 'profile': profile, 'message': message }
+                        return render(request, self.template_name, context)
+
+                # Verify that all phrases have translations and those include only alphabetic characters
+                row, non_lists, non_alphas, missing_translations = 1, False, False, False
+                for item in data_list:
+                    row += 1
+                    if item["translations"]:
+                        if type(item["translations"]) is not list:
+                            non_lists = True
+                            break
+                        for translation in item["translations"]:
+                            if match(r'[a-zA-Z ]$', translation):
+                                non_alphas = True
+                                break
+                    else: # if list is empty
+                        missing_translations = True
                         break
-            else: # if list is empty
-                missing_translations = True
-                break
-        if missing_translations or non_alphas or non_lists:
-            message = "Errors with data entry for translation column. Add translations for phrases with the "
-            message += "format [\"Translation one\", \"Two and\", \"Three\"]. Correct all rows before continuing."
-            context = {
-                'profile': profile,
-                'message': message,
-            }
+                if missing_translations or non_alphas or non_lists:
+                    message = "Errors with data entry for translation column. Add translations for phrases with the "
+                    message += "format [\"Translation one\", \"Two and\", \"Three\"]. Correct all rows before continuing."
+                    context = {
+                        'profile': profile,
+                        'message': message,
+                    }
+        except IntegrityError as e:
+            messages.error(
+                request,
+                f"The phrase update was not applied because database data conflicts: {e}",
+            )
             return render(request, self.template_name, context)
 
 
@@ -1443,7 +1449,6 @@ class DistractorCsvImportView(PermissionRequiredMixin, ListView):
             return redirect('frendj:home')
 
         profile = Profile.objects.get(user=request.user)
-        distractors = Distractor.objects.all()
         update_form = CsvForm(request.POST)
         if not update_form.is_valid():
             message = "Your request couldn't complete. Please try again. If error persists, contact the support team."
@@ -1472,7 +1477,7 @@ class DistractorCsvImportView(PermissionRequiredMixin, ListView):
                     return render(request, 'staff/distractor_error_redirect.html')
 
                 # Delete distractors with IDs missing from database before adding and editing
-                stored_distractor_ids = list(distractors.values_list("pk", flat=True))
+                stored_distractor_ids = list(distractors.values_list('pk', flat=True))
                 csv_distractor_ids = {
                     int(item['id']) for item in data_list if item.get('id') is not None
                 }

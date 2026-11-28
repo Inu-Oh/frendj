@@ -192,6 +192,21 @@ class PhraseCsvTestViewTests(TestCase):
         self.assertIn("rows missing translations: 2", messages)
         self.assertNotIn("non-alphabetic characters", messages)
 
+    def test_post_reports_duplicate_translations_in_a_row(self):
+        response = self.post_rows(
+            ("", "Basics", "bonjour", "English", ["hello", "hello"])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        section = next(
+            section
+            for section in response.context["error_sections"]
+            if section["title"] == "Translation column"
+        )
+        messages = " ".join(section["messages"])
+        self.assertIn("duplicate equivalent translations", messages)
+        self.assertIn('"hello" at row 2', messages)
+
 
 class DistractorCsvTestViewTests(TestCase):
     def setUp(self):
